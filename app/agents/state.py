@@ -20,5 +20,6 @@ class BookState(TypedDict, total=False):
     chapter_reviews: List[Dict[str, Any]]
     final_chapters: List[Dict[str, Any]]
     user_feedback: List[Dict[str, Any]]
+    execution_runs: List[Dict[str, Any]]
     status: str
     errors: List[Dict[str, Any]]

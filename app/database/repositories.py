@@ -24,6 +24,7 @@ class InMemoryProjectRepository:
             "chapter_reviews": [],
             "final_chapters": [],
             "user_feedback": [],
+            "execution_runs": [],
             "errors": [],
             "status": "created",
             "title": title,

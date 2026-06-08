@@ -69,3 +69,10 @@ def test_approved_project_can_generate_chapter_step_by_step():
     edit_response = client.post(f"/projects/{project_id}/chapters/1/edit")
     assert edit_response.status_code == 200
     assert edit_response.json()["final_chapters"][0]["chapter_number"] == 1
+
+    runs_response = client.get(f"/projects/{project_id}/runs")
+    assert runs_response.status_code == 200
+    run_types = [run["run_type"] for run in runs_response.json()]
+    assert "book_plan" in run_types
+    assert "structure_approval" in run_types
+    assert "chapter_edit" in run_types

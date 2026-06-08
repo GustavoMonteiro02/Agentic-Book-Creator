@@ -4,6 +4,7 @@ from app.agents.editor_agent import edit_chapter
 from app.agents.graph import HumanApprovalRequired, SimpleBookWorkflow
 from app.agents.technical_reviewer_agent import review_chapter
 from app.database.repositories import project_repository
+from app.services.run_service import record_run
 
 
 class ChapterService:
@@ -14,11 +15,13 @@ class ChapterService:
         state = project_repository.get(project_id)
         state["current_chapter_number"] = chapter_number
         state = self.workflow.generate_chapter(state)
+        state = record_run(state, "chapter_generation")
         return project_repository.save(state)
 
     def plan_chapter(self, project_id: str, chapter_number: int):
         state = self._get_approved_state(project_id, chapter_number)
         state = plan_chapter(state)
+        state = record_run(state, "chapter_planning")
         return project_repository.save(state)
 
     def draft_chapter(self, project_id: str, chapter_number: int):
@@ -26,6 +29,7 @@ class ChapterService:
         if not state.get("chapter_plans"):
             state = plan_chapter(state)
         state = write_chapter(state)
+        state = record_run(state, "chapter_drafting")
         return project_repository.save(state)
 
     def review_chapter(self, project_id: str, chapter_number: int):
@@ -35,6 +39,7 @@ class ChapterService:
                 state = plan_chapter(state)
             state = write_chapter(state)
         state = review_chapter(state)
+        state = record_run(state, "chapter_review")
         return project_repository.save(state)
 
     def edit_chapter(self, project_id: str, chapter_number: int):
@@ -46,6 +51,7 @@ class ChapterService:
         if not state.get("chapter_reviews"):
             state = review_chapter(state)
         state = edit_chapter(state)
+        state = record_run(state, "chapter_edit")
         return project_repository.save(state)
 
     def get_chapter(self, project_id: str, chapter_number: int):

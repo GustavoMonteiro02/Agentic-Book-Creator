@@ -22,3 +22,11 @@ def get_project(project_id: str):
         return project_service.get_project(project_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
+
+
+@router.get("/{project_id}/runs")
+def get_project_runs(project_id: str):
+    try:
+        return project_service.get_project(project_id).get("execution_runs", [])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
