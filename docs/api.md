@@ -102,13 +102,30 @@ curl http://127.0.0.1:8000/projects/{project_id}/checkpoints
 curl -X POST http://127.0.0.1:8000/projects/{project_id}/checkpoints/{checkpoint_id}/restore
 ```
 
-## 9. Export Markdown
+## 9. Upload and Inspect Sources
+
+```bash
+curl -X POST http://127.0.0.1:8000/projects/{project_id}/sources/upload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "rag-notes.md",
+    "content": "# RAG\nUse retrieval.\n\n# Evaluation\nMeasure recall.",
+    "content_type": "text/markdown"
+  }'
+
+curl http://127.0.0.1:8000/projects/{project_id}/sources
+curl http://127.0.0.1:8000/projects/{project_id}/sources/chunks
+```
+
+Sources are currently indexed into a local project-scoped chunk list using heading-aware chunking.
+
+## 10. Export Markdown
 
 ```bash
 curl -X POST http://127.0.0.1:8000/projects/{project_id}/export/markdown
 ```
 
-## 10. Inspect Prompt Versions
+## 11. Inspect Prompt Versions
 
 ```bash
 curl http://127.0.0.1:8000/prompts

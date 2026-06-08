@@ -115,6 +115,8 @@ def _initial_state(project_id: str, title: str, initial_idea: str, created_at: s
         "project_memory": [],
         "execution_runs": [],
         "checkpoints": [],
+        "sources": [],
+        "source_chunks": [],
         "errors": [],
         "status": "created",
         "title": title,
@@ -143,6 +145,8 @@ def _state_from_project(project: BookProject) -> BookState:
     state.setdefault("project_memory", [])
     state.setdefault("execution_runs", [])
     state.setdefault("checkpoints", [])
+    state.setdefault("sources", [])
+    state.setdefault("source_chunks", [])
     state.setdefault("errors", [])
     state.setdefault("created_at", project.created_at.isoformat())
     state.setdefault("updated_at", project.updated_at.isoformat())

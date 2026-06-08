@@ -23,5 +23,7 @@ class BookState(TypedDict, total=False):
     project_memory: List[Dict[str, Any]]
     execution_runs: List[Dict[str, Any]]
     checkpoints: List[Dict[str, Any]]
+    sources: List[Dict[str, Any]]
+    source_chunks: List[Dict[str, Any]]
     status: str
     errors: List[Dict[str, Any]]

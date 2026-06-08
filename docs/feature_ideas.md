@@ -43,6 +43,8 @@ Why it matters: blind fixed-size chunking can split concepts and damage retrieva
 
 Current status: implemented a deterministic first pass in `app/rag/ingest.py` with fixed-size chunking, overlap, Markdown heading splitting, and chunk metadata.
 
+Source upload status: added project-scoped source upload and local chunk indexing endpoints as the bridge toward Pinecone indexing.
+
 ## 4. Zero-Downtime Embedding Migration
 
 Add an index migration workflow:
