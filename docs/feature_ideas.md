@@ -41,6 +41,8 @@ Implement chunking modes:
 
 Why it matters: blind fixed-size chunking can split concepts and damage retrieval quality. Structure-aware chunking is more realistic for enterprise documents.
 
+Current status: implemented a deterministic first pass in `app/rag/ingest.py` with fixed-size chunking, overlap, Markdown heading splitting, and chunk metadata.
+
 ## 4. Zero-Downtime Embedding Migration
 
 Add an index migration workflow:
