@@ -25,3 +25,47 @@ def test_project_to_questions_flow():
     questions_response = client.post(f"/projects/{project_id}/questions")
     assert questions_response.status_code == 200
     assert "input_questions" in questions_response.json()
+
+
+def test_approved_project_can_generate_chapter_step_by_step():
+    client = TestClient(app)
+    create_response = client.post(
+        "/projects",
+        json={
+            "title": "Agentic AI for Automation",
+            "initial_idea": "Quero um livro prático sobre agentes de IA para RPA developers com código.",
+        },
+    )
+    project_id = create_response.json()["project_id"]
+
+    answers_response = client.post(
+        f"/projects/{project_id}/answers",
+        json={
+            "answers": [
+                {"field": "tone", "answer": "prático e conversacional"},
+                {"field": "reader_level", "answer": "intermédio"},
+                {"field": "preferred_structure", "answer": "do básico ao avançado por projetos"},
+                {"field": "output_formats", "answer": "Markdown"},
+            ]
+        },
+    )
+    assert answers_response.status_code == 200
+    assert answers_response.json()["book_structure"]["parts"]
+
+    approval_response = client.post(
+        f"/projects/{project_id}/approve-structure",
+        json={"approved": True},
+    )
+    assert approval_response.status_code == 200
+
+    plan_response = client.post(f"/projects/{project_id}/chapters/1/plan")
+    assert plan_response.status_code == 200
+    assert plan_response.json()["chapter_plans"]
+
+    review_response = client.post(f"/projects/{project_id}/chapters/1/review")
+    assert review_response.status_code == 200
+    assert review_response.json()["chapter_reviews"]
+
+    edit_response = client.post(f"/projects/{project_id}/chapters/1/edit")
+    assert edit_response.status_code == 200
+    assert edit_response.json()["final_chapters"][0]["chapter_number"] == 1
