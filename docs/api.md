@@ -3,6 +3,7 @@
 Start the backend:
 
 ```bash
+make migrate
 uvicorn app.api.main:app --reload
 ```
 

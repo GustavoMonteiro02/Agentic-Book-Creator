@@ -57,6 +57,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+make migrate
 uvicorn app.api.main:app --reload
 ```
 
@@ -67,6 +68,12 @@ streamlit run frontend/streamlit_app.py
 ```
 
 The current scaffold includes deterministic local agent implementations so the MVP can be tested without LLM credentials. Replacing those with LangChain model calls is isolated to `app/agents/*_agent.py`.
+
+Database migrations are managed with Alembic:
+
+```bash
+make migrate
+```
 
 ## Portfolio Narrative
 

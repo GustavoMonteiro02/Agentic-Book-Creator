@@ -38,7 +38,7 @@ PostgreSQL stores durable project artifacts:
 - `chapter_reviews`: technical and editorial review data
 - `execution_runs`: workflow runs and LangSmith trace links
 
-The MVP can use SQLite locally through the same SQLAlchemy models, while Docker Compose provides PostgreSQL for portfolio/demo use.
+The MVP can use SQLite locally through the same SQLAlchemy models, while Docker Compose provides PostgreSQL for portfolio/demo use. Alembic migrations define the durable schema and should be run before serving a shared environment.
 
 ## Agent Design
 
