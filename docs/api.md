@@ -101,6 +101,15 @@ Runs are currently stored in memory and include a placeholder field for future `
 curl -X POST http://127.0.0.1:8000/projects/{project_id}/export/markdown
 ```
 
+## 9. Inspect Prompt Versions
+
+```bash
+curl http://127.0.0.1:8000/prompts
+curl http://127.0.0.1:8000/prompts/chapter_writer
+```
+
+The prompt registry returns version, output contract, model route, and changelog metadata. Individual prompt lookups include the prompt template by default.
+
 ## Current MVP Limitation
 
 The first implementation uses deterministic local agent functions and an in-memory repository so tests and demos can run without API keys. The database schema, LangGraph builder, prompt contracts, Pinecone placeholders, and LangSmith run fields are already prepared for the next integration pass.

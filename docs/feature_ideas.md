@@ -128,6 +128,8 @@ Add tests for prompts and structured outputs:
 
 Why it matters: LLM CI/CD should test prompts, schemas, retrieval, cost, latency, and regressions.
 
+Current status: added a versioned prompt registry with prompt names, versions, output contracts, model routes, changelogs, and API endpoints for inspection.
+
 ## 10. Debugging Assistant
 
 Add a diagnostics checklist for incorrect outputs:

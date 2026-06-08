@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import chapters, export, inputs, memory, projects, structure
+from app.api.routes import chapters, export, inputs, memory, projects, prompts, structure
 from app.config import get_settings
 from app.database.session import init_database
 
@@ -23,6 +23,7 @@ app.include_router(structure.router)
 app.include_router(chapters.router)
 app.include_router(export.router)
 app.include_router(memory.router)
+app.include_router(prompts.router)
 
 
 @app.get("/health")
