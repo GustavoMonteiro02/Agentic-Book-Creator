@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+from app.agents.graph import SimpleBookWorkflow
+from app.database.repositories import project_repository
+
+
+class BookService:
+    def __init__(self) -> None:
+        self.workflow = SimpleBookWorkflow()
+
+    def generate_questions(self, project_id: str):
+        state = project_repository.get(project_id)
+        state = self.workflow.gather(state)
+        return project_repository.save(state)
+
+    def submit_answers(self, project_id: str, answers: list[dict]):
+        state = project_repository.get(project_id)
+        state["user_answers"] = answers
+        state["raw_user_inputs"] = [*state.get("raw_user_inputs", []), *[answer["answer"] for answer in answers]]
+        state = self.workflow.create_book_plan(state)
+        return project_repository.save(state)
+
+    def approve_structure(self, project_id: str, approved: bool, revision_request: str | None = None):
+        state = project_repository.get(project_id)
+        state["structure_approved"] = approved
+        if revision_request:
+            state["structure_revision_requests"] = [*state.get("structure_revision_requests", []), revision_request]
+        state["status"] = "structure_approved" if approved else "structure_revision_requested"
+        return project_repository.save(state)
+
+
+book_service = BookService()

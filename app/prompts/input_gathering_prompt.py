@@ -1,0 +1,1 @@
+INPUT_GATHERING_PROMPT = """Analyze the user's book idea and identify only the missing information needed to create a strong editorial brief. Return structured JSON with known_information, missing_information, and follow_up_questions."""
