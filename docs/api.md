@@ -95,13 +95,20 @@ curl http://127.0.0.1:8000/projects/{project_id}/runs
 
 Runs are currently stored in memory and include a placeholder field for future `langsmith_trace_url` integration.
 
-## 8. Export Markdown
+## 8. Restore From a Checkpoint
+
+```bash
+curl http://127.0.0.1:8000/projects/{project_id}/checkpoints
+curl -X POST http://127.0.0.1:8000/projects/{project_id}/checkpoints/{checkpoint_id}/restore
+```
+
+## 9. Export Markdown
 
 ```bash
 curl -X POST http://127.0.0.1:8000/projects/{project_id}/export/markdown
 ```
 
-## 9. Inspect Prompt Versions
+## 10. Inspect Prompt Versions
 
 ```bash
 curl http://127.0.0.1:8000/prompts

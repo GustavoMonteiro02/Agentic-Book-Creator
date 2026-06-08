@@ -101,6 +101,8 @@ Checkpoint every workflow step:
 
 If a step fails, retry only that step. If it fails repeatedly, request human review or use a fallback.
 
+Current status: implemented checkpoint snapshots for workflow runs plus API endpoints to list and restore checkpoints.
+
 ## 8. Memory Policy
 
 Add project-level memory with rules:

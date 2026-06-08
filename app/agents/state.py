@@ -22,5 +22,6 @@ class BookState(TypedDict, total=False):
     user_feedback: List[Dict[str, Any]]
     project_memory: List[Dict[str, Any]]
     execution_runs: List[Dict[str, Any]]
+    checkpoints: List[Dict[str, Any]]
     status: str
     errors: List[Dict[str, Any]]

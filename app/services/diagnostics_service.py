@@ -30,6 +30,7 @@ class DiagnosticsService:
             "artifact_counts": {
                 "questions": len(state.get("input_questions", [])),
                 "memory_items": len(state.get("project_memory", [])),
+                "checkpoints": len(state.get("checkpoints", [])),
                 "chapter_plans": len(state.get("chapter_plans", [])),
                 "chapter_drafts": len(state.get("chapter_drafts", [])),
                 "chapter_reviews": len(state.get("chapter_reviews", [])),

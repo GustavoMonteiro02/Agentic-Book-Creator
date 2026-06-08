@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from app.agents.state import BookState
+from app.services.checkpoint_service import checkpoint_service
 from app.services.model_routing_service import routing_metadata
 
 
@@ -37,4 +38,5 @@ def record_run(
         "finished_at": now,
     }
     state["execution_runs"] = [*state.get("execution_runs", []), run]
+    state = checkpoint_service.create_checkpoint(state, run_type)
     return state
