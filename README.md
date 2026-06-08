@@ -73,3 +73,5 @@ The current scaffold includes deterministic local agent implementations so the M
 This project demonstrates the practical architecture behind agentic systems: stateful orchestration, structured intermediate artifacts, approval gates, persistence, observability, and evaluation-readiness. It is designed to grow from a runnable MVP into a complete AI Engineering portfolio case study.
 
 See [docs/architecture.md](docs/architecture.md), [docs/langgraph_workflow.md](docs/langgraph_workflow.md), and [docs/backlog.md](docs/backlog.md).
+
+For a runnable API walkthrough, see [docs/api.md](docs/api.md).
