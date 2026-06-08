@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from app.agents.state import BookState
+from app.services.model_routing_service import routing_metadata
 
 
 DEFAULT_LLM_METADATA = {
@@ -31,7 +32,7 @@ def record_run(
         "run_type": run_type,
         "status": status,
         "langsmith_trace_url": langsmith_trace_url,
-        "llm_metadata": {**DEFAULT_LLM_METADATA, **(metadata or {})},
+        "llm_metadata": {**DEFAULT_LLM_METADATA, **routing_metadata(run_type), **(metadata or {})},
         "started_at": now,
         "finished_at": now,
     }

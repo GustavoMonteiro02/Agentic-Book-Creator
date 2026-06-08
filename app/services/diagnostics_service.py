@@ -26,6 +26,7 @@ class DiagnosticsService:
             "estimated_total_tokens": token_estimate,
             "estimated_cost_usd": estimate_cost_usd(token_estimate),
             "run_count_by_type": run_count_by_type,
+            "routing_summary": _summarize_routes(state.get("execution_runs", [])),
             "artifact_counts": {
                 "questions": len(state.get("input_questions", [])),
                 "memory_items": len(state.get("project_memory", [])),
@@ -63,6 +64,14 @@ def _count_runs_by_type(runs: list[dict]) -> dict:
         run_type = run.get("run_type", "unknown")
         counts[run_type] = counts.get(run_type, 0) + 1
     return counts
+
+
+def _summarize_routes(runs: list[dict]) -> dict:
+    summary: dict[str, int] = {}
+    for run in runs:
+        route = run.get("llm_metadata", {}).get("model_route", "unknown")
+        summary[route] = summary.get(route, 0) + 1
+    return summary
 
 
 def build_debugging_checklist(quality_signals: dict) -> list[dict]:

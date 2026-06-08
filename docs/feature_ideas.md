@@ -83,6 +83,8 @@ Route simple tasks to cheaper deterministic or smaller-model paths:
 
 Why it matters: a mature AI engineer does not use the largest model for every task.
 
+Current status: implemented a deterministic routing policy that annotates each workflow run with route, routed model name, cost tier, and routing reason.
+
 ## 7. Failure Checkpoint and Resume
 
 Checkpoint every workflow step:
