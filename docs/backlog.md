@@ -31,6 +31,9 @@
 - Project-scoped retrieval
 - Use retrieved context in chapter planning and writing
 - Add internal citations and source traceability
+- Add structure-aware chunking
+- Add index versioning and zero-downtime embedding migration plan
+- Add retrieval evaluation with Precision@K, Recall@K, Hit Rate@K, and MRR
 
 ## v0.4 - Evaluation
 
@@ -38,6 +41,9 @@
 - Create evaluation datasets
 - Add LangSmith evaluation integration
 - Add regression tests for agent outputs
+- Add prompt regression tests and schema validation checks
+- Add cost and latency budgets per workflow step
+- Add debugging checklist for failed or incorrect outputs
 
 ## v0.5 - Export
 
@@ -55,3 +61,11 @@
 - Architecture diagram
 - Business value section
 - CV bullet suggestions
+
+## Cross-Cutting LLMOps Features
+
+- Context versioning for prompts, models, embeddings, chunking, retrieval, and indexes
+- Failure checkpoint and resume per workflow node
+- Memory policy with expiry, deletion, and audit trail
+- Model routing for cheap deterministic tasks versus expensive generation tasks
+- Logging that supports debugging without storing unnecessary sensitive data
