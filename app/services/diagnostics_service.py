@@ -11,6 +11,14 @@ class DiagnosticsService:
         run_count_by_type = _count_runs_by_type(state.get("execution_runs", []))
         latest_run = state.get("execution_runs", [])[-1] if state.get("execution_runs") else {}
 
+        quality_signals = {
+            "has_human_approval_gate": True,
+            "structure_approved": bool(state.get("structure_approved")),
+            "has_technical_review": bool(state.get("chapter_reviews")),
+            "has_final_markdown": bool(state.get("final_chapters")),
+            "rag_enabled": False,
+        }
+
         return {
             "project_id": project_id,
             "status": state.get("status", "unknown"),
@@ -26,13 +34,8 @@ class DiagnosticsService:
                 "chapter_reviews": len(state.get("chapter_reviews", [])),
                 "final_chapters": len(state.get("final_chapters", [])),
             },
-            "quality_signals": {
-                "has_human_approval_gate": True,
-                "structure_approved": bool(state.get("structure_approved")),
-                "has_technical_review": bool(state.get("chapter_reviews")),
-                "has_final_markdown": bool(state.get("final_chapters")),
-                "rag_enabled": False,
-            },
+            "quality_signals": quality_signals,
+            "debugging_checklist": build_debugging_checklist(quality_signals),
         }
 
 
@@ -60,6 +63,37 @@ def _count_runs_by_type(runs: list[dict]) -> dict:
         run_type = run.get("run_type", "unknown")
         counts[run_type] = counts.get(run_type, 0) + 1
     return counts
+
+
+def build_debugging_checklist(quality_signals: dict) -> list[dict]:
+    checklist = [
+        {
+            "question": "Was the input clear enough to generate a structured brief?",
+            "status": "check",
+            "category": "input_understanding",
+        },
+        {
+            "question": "Was the book structure approved before chapter generation?",
+            "status": "pass" if quality_signals["structure_approved"] else "needs_attention",
+            "category": "human_review",
+        },
+        {
+            "question": "Was a technical review produced before final editing?",
+            "status": "pass" if quality_signals["has_technical_review"] else "needs_attention",
+            "category": "technical_review",
+        },
+        {
+            "question": "Is the answer grounded in retrieved source context?",
+            "status": "not_applicable" if not quality_signals["rag_enabled"] else "check",
+            "category": "rag_grounding",
+        },
+        {
+            "question": "Would a deterministic rule be better than an LLM for this step?",
+            "status": "check",
+            "category": "system_design",
+        },
+    ]
+    return checklist
 
 
 diagnostics_service = DiagnosticsService()

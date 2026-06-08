@@ -83,3 +83,5 @@ def test_approved_project_can_generate_chapter_step_by_step():
     assert diagnostics["estimated_total_tokens"] > 0
     assert diagnostics["llm_metadata"]["prompt_version"] == "mvp-v1"
     assert diagnostics["quality_signals"]["has_technical_review"] is True
+    assert diagnostics["debugging_checklist"]
+    assert any(item["category"] == "rag_grounding" for item in diagnostics["debugging_checklist"])
