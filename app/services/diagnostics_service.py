@@ -20,6 +20,7 @@ class DiagnosticsService:
             "run_count_by_type": run_count_by_type,
             "artifact_counts": {
                 "questions": len(state.get("input_questions", [])),
+                "memory_items": len(state.get("project_memory", [])),
                 "chapter_plans": len(state.get("chapter_plans", [])),
                 "chapter_drafts": len(state.get("chapter_drafts", [])),
                 "chapter_reviews": len(state.get("chapter_reviews", [])),

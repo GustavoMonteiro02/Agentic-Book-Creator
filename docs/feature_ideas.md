@@ -112,6 +112,8 @@ Add project-level memory with rules:
 
 Why it matters: memory should improve UX without becoming an uncontrolled data dump.
 
+Current status: implemented a project memory MVP with explicit create/list/delete endpoints, timestamps, optional expiry, and diagnostics counts.
+
 ## 9. Prompt Regression Tests
 
 Add tests for prompts and structured outputs:
