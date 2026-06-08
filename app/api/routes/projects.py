@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.project import ProjectCreate
+from app.services.diagnostics_service import diagnostics_service
 from app.services.project_service import project_service
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -28,5 +29,13 @@ def get_project(project_id: str):
 def get_project_runs(project_id: str):
     try:
         return project_service.get_project(project_id).get("execution_runs", [])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+
+
+@router.get("/{project_id}/diagnostics")
+def get_project_diagnostics(project_id: str):
+    try:
+        return diagnostics_service.get_project_diagnostics(project_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc

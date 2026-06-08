@@ -76,3 +76,10 @@ def test_approved_project_can_generate_chapter_step_by_step():
     assert "book_plan" in run_types
     assert "structure_approval" in run_types
     assert "chapter_edit" in run_types
+
+    diagnostics_response = client.get(f"/projects/{project_id}/diagnostics")
+    assert diagnostics_response.status_code == 200
+    diagnostics = diagnostics_response.json()
+    assert diagnostics["estimated_total_tokens"] > 0
+    assert diagnostics["llm_metadata"]["prompt_version"] == "mvp-v1"
+    assert diagnostics["quality_signals"]["has_technical_review"] is True
