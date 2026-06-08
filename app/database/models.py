@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -66,7 +67,7 @@ class BookStructure(Base):
     structure_json: Mapped[dict] = mapped_column(JSON)
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class BookChapter(Base):
@@ -76,9 +77,9 @@ class BookChapter(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("book_projects.id"))
     chapter_number: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(200))
-    plan_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    draft_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
-    final_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    draft_markdown: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    final_markdown: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="planned")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -103,6 +104,6 @@ class ExecutionRun(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("book_projects.id"))
     run_type: Mapped[str] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(50))
-    langsmith_trace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    langsmith_trace_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
