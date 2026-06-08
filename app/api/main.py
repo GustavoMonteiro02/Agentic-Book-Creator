@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import checkpoints, chapters, export, inputs, memory, projects, prompts, sources, structure
+from app.api.routes import checkpoints, chapters, evaluation, export, inputs, memory, projects, prompts, sources, structure
 from app.config import get_settings
 from app.database.session import init_database
 
@@ -22,6 +22,7 @@ app.include_router(inputs.router)
 app.include_router(structure.router)
 app.include_router(chapters.router)
 app.include_router(checkpoints.router)
+app.include_router(evaluation.router)
 app.include_router(export.router)
 app.include_router(memory.router)
 app.include_router(prompts.router)

@@ -30,6 +30,8 @@ Add golden datasets for source retrieval:
 
 Why it matters: if a generated answer is wrong, the system should help determine whether the root cause was retrieval, reranking, prompt assembly, or generation.
 
+Current status: exposed retrieval evaluation through an API endpoint using Precision@K, Recall@K, Hit Rate@K, and MRR.
+
 ## 3. Source-Aware Chunking
 
 Implement chunking modes:

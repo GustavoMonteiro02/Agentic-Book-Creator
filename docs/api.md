@@ -134,6 +134,25 @@ curl http://127.0.0.1:8000/prompts/chapter_writer
 
 The prompt registry returns version, output contract, model route, and changelog metadata. Individual prompt lookups include the prompt template by default.
 
+## 12. Evaluate Retrieval
+
+```bash
+curl -X POST http://127.0.0.1:8000/projects/{project_id}/evaluate/retrieval \
+  -H "Content-Type: application/json" \
+  -d '{
+    "k": 2,
+    "cases": [
+      {
+        "query": "How do embeddings migrate?",
+        "expected_document_ids": ["doc-2"],
+        "retrieved_document_ids": ["doc-1", "doc-2"]
+      }
+    ]
+  }'
+```
+
+The response includes Precision@K, Recall@K, Hit Rate@K, and MRR.
+
 ## Current MVP Limitation
 
 The first implementation uses deterministic local agent functions and an in-memory repository so tests and demos can run without API keys. The database schema, LangGraph builder, prompt contracts, Pinecone placeholders, and LangSmith run fields are already prepared for the next integration pass.
