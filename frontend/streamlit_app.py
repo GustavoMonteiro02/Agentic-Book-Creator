@@ -5,7 +5,10 @@ import os
 import requests
 import streamlit as st
 
-from frontend.workflow_state import next_action, workflow_progress, workflow_steps
+try:
+    from frontend.workflow_state import next_action, workflow_progress, workflow_steps
+except ModuleNotFoundError:
+    from workflow_state import next_action, workflow_progress, workflow_steps
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
