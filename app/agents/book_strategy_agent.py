@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.book_strategy_prompt import BOOK_STRATEGY_PROMPT
 
 
 def create_strategy(state: BookState) -> BookState:
@@ -21,5 +23,11 @@ def create_strategy(state: BookState) -> BookState:
         "difficulty_progression": "Start with mental models, move into workflows, then production concerns.",
         "primary_reader_value": "A concrete path from agent demos to maintainable agentic applications.",
     }
+
+    strategy = llm_client.generate_json(
+        system_prompt=BOOK_STRATEGY_PROMPT,
+        user_payload={"book_requirements": requirements},
+        fallback=strategy,
+    )
 
     return {**state, "book_strategy": strategy, "status": "strategy_ready"}

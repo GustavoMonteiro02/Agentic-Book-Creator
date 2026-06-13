@@ -155,4 +155,13 @@ The response includes Precision@K, Recall@K, Hit Rate@K, and MRR.
 
 ## Current MVP Limitation
 
-The first implementation uses deterministic local agent functions and an in-memory repository so tests and demos can run without API keys. The database schema, LangGraph builder, prompt contracts, Pinecone placeholders, and LangSmith run fields are already prepared for the next integration pass.
+The agents call a real LLM when `OPENAI_API_KEY` is configured. Without credentials, deterministic fallbacks keep tests, CI, and local demos stable. Pinecone retrieval and LangSmith trace submission are still planned integration layers.
+
+Minimum real-LLM configuration:
+
+```bash
+OPENAI_API_KEY=sk-...
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+LLM_ENABLED=true
+```

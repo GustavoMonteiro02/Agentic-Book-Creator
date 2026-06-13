@@ -67,7 +67,12 @@ In another terminal:
 streamlit run frontend/streamlit_app.py
 ```
 
-The current scaffold includes deterministic local agent implementations so the MVP can be tested without LLM credentials. Replacing those with LangChain model calls is isolated to `app/agents/*_agent.py`.
+The agents use real LLM calls when `OPENAI_API_KEY` is configured. Without credentials, they fall back to deterministic local implementations so tests, CI, and offline demos remain stable.
+
+```bash
+export OPENAI_API_KEY=...
+export LLM_MODEL=gpt-4o-mini
+```
 
 Database migrations are managed with Alembic:
 

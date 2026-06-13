@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.technical_review_prompt import TECHNICAL_REVIEW_PROMPT
 
 
 def review_chapter(state: BookState) -> BookState:
@@ -19,5 +21,15 @@ def review_chapter(state: BookState) -> BookState:
         "issues": issues,
         "improvement_suggestions": ["Add concrete production examples in the LLM-backed implementation."],
     }
+
+    review = llm_client.generate_json(
+        system_prompt=TECHNICAL_REVIEW_PROMPT,
+        user_payload={
+            "book_requirements": state.get("book_requirements", {}),
+            "book_strategy": state.get("book_strategy", {}),
+            "chapter_draft": draft,
+        },
+        fallback=review,
+    )
 
     return {**state, "chapter_reviews": [*state.get("chapter_reviews", []), review], "status": "chapter_reviewed"}

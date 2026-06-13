@@ -55,13 +55,15 @@ The agent layer is intentionally modular:
 - Editor Agent improves clarity and style.
 - Consistency and Export Agents are planned after the MVP.
 
+Each agent first prepares a deterministic fallback artifact, then delegates to the shared LLM client. If `OPENAI_API_KEY` is present, the client calls the configured OpenAI model. If not, it returns the fallback. This keeps production behavior LLM-backed while preserving stable offline tests.
+
 ## RAG Strategy
 
 RAG enters in v0.3, after the core workflow is stable. Source upload and indexing should produce project-scoped document chunks in Pinecone. Chapter planning and writing can then retrieve relevant context and include source-grounded examples.
 
 ## Observability
 
-LangSmith tracing should wrap each workflow execution and key LLM call. The `execution_runs` table stores status, run type, timing, and trace URLs so the UI can connect generated artifacts to execution traces.
+The agent layer uses an optional LLM client. When `OPENAI_API_KEY` is configured, agents call the configured OpenAI model; otherwise, deterministic fallbacks are used for tests and offline demos. LangSmith tracing should wrap each workflow execution and key LLM call. The `execution_runs` table stores status, run type, timing, and trace URLs so the UI can connect generated artifacts to execution traces.
 
 ## Design Principles
 

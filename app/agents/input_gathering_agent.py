@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.input_gathering_prompt import INPUT_GATHERING_PROMPT
 
 
 QUESTION_BANK = {
@@ -44,9 +46,34 @@ def gather_input(state: BookState) -> BookState:
         for field in missing[:4]
     ]
 
-    return {
+    fallback = {
         **state,
         "missing_information": missing,
         "input_questions": follow_up_questions,
         "status": "awaiting_input" if follow_up_questions else "input_complete",
+    }
+
+    llm_result = llm_client.generate_json(
+        system_prompt=INPUT_GATHERING_PROMPT,
+        user_payload={
+            "initial_user_idea": state.get("initial_user_idea", ""),
+            "user_answers": state.get("user_answers", []),
+            "known_information": known_information,
+            "fallback_question_bank": QUESTION_BANK,
+        },
+        fallback={
+            "missing_information": missing,
+            "follow_up_questions": follow_up_questions,
+            "known_information": known_information,
+        },
+    )
+
+    input_questions = llm_result.get("follow_up_questions", follow_up_questions)
+    missing_information = llm_result.get("missing_information", missing)
+
+    return {
+        **fallback,
+        "missing_information": missing_information,
+        "input_questions": input_questions,
+        "status": "awaiting_input" if input_questions else "input_complete",
     }

@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.input_understanding_prompt import INPUT_UNDERSTANDING_PROMPT
 
 
 def understand_input(state: BookState) -> BookState:
@@ -19,6 +21,12 @@ def understand_input(state: BookState) -> BookState:
         "chapter_format": _split_answer(answers.get("chapter_format", "introduction, concepts, code, mistakes, exercises, mini project")),
         "output_formats": _split_answer(answers.get("output_formats", "Markdown")),
     }
+
+    requirements = llm_client.generate_json(
+        system_prompt=INPUT_UNDERSTANDING_PROMPT,
+        user_payload={"initial_user_idea": idea, "user_answers": state.get("user_answers", [])},
+        fallback=requirements,
+    )
 
     return {**state, "book_requirements": requirements, "status": "requirements_ready"}
 

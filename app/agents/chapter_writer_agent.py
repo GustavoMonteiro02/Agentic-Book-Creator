@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.chapter_writer_prompt import CHAPTER_WRITER_PROMPT
 
 
 def write_chapter(state: BookState) -> BookState:
@@ -44,6 +46,17 @@ Agentic engineering is the discipline of making AI workflows explicit, observabl
 
 {_format_exercises(plan.get("exercises", []))}
 """
+
+    markdown = llm_client.generate_text(
+        system_prompt=CHAPTER_WRITER_PROMPT,
+        user_payload={
+            "book_requirements": state.get("book_requirements", {}),
+            "book_strategy": state.get("book_strategy", {}),
+            "chapter_plan": plan,
+            "chapter_template": state.get("chapter_template", {}),
+        },
+        fallback=markdown,
+    )
 
     draft = {"chapter_number": plan.get("chapter_number", 1), "title": title, "markdown": markdown}
     return {**state, "chapter_drafts": [*state.get("chapter_drafts", []), draft], "status": "chapter_drafted"}

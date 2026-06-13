@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.chapter_planner_prompt import CHAPTER_PLANNER_PROMPT
 
 
 def plan_chapter(state: BookState) -> BookState:
@@ -17,6 +19,17 @@ def plan_chapter(state: BookState) -> BookState:
         "exercises": chapter.get("exercises", []),
         "quality_criteria": ["clear", "technically accurate", "actionable", "consistent with strategy"],
     }
+
+    plan = llm_client.generate_json(
+        system_prompt=CHAPTER_PLANNER_PROMPT,
+        user_payload={
+            "book_requirements": state.get("book_requirements", {}),
+            "book_strategy": state.get("book_strategy", {}),
+            "book_structure": state.get("book_structure", {}),
+            "chapter": chapter,
+        },
+        fallback=plan,
+    )
 
     return {
         **state,

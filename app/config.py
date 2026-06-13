@@ -1,10 +1,16 @@
 from functools import lru_cache
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "Agentic Book Creator"
     database_url: str = "sqlite:///./agentic_book_creator.db"
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o-mini"
+    llm_enabled: bool = True
+    openai_api_key: Optional[str] = None
     langsmith_tracing: bool = False
     langsmith_project: str = "agentic-book-creator"
     pinecone_index_name: str = "agentic-book-creator"

@@ -1,4 +1,6 @@
 from app.agents.state import BookState
+from app.llm.client import llm_client
+from app.prompts.structure_designer_prompt import STRUCTURE_DESIGNER_PROMPT
 
 
 def design_structure(state: BookState) -> BookState:
@@ -50,5 +52,14 @@ def design_structure(state: BookState) -> BookState:
             },
         ],
     }
+
+    structure = llm_client.generate_json(
+        system_prompt=STRUCTURE_DESIGNER_PROMPT,
+        user_payload={
+            "book_requirements": state.get("book_requirements", {}),
+            "book_strategy": strategy,
+        },
+        fallback=structure,
+    )
 
     return {**state, "book_structure": structure, "status": "structure_ready"}
