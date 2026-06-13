@@ -72,4 +72,4 @@ The workflow must not generate chapters until the structure is approved. Human r
 
 ## Implementation Notes
 
-The current scaffold implements the same node contract with deterministic Python functions. That keeps the app runnable before API keys are configured. The graph can be upgraded by replacing `SimpleBookWorkflow` with a LangGraph `StateGraph` whose node functions call the same agent modules.
+The service layer now runs the core creation phases through compiled LangGraph graphs. The node functions call Gemini through the shared LLM client when credentials are configured, while deterministic fallbacks keep tests and offline demos stable.

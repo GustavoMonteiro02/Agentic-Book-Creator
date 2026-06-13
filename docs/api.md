@@ -155,13 +155,13 @@ The response includes Precision@K, Recall@K, Hit Rate@K, and MRR.
 
 ## Current MVP Limitation
 
-The agents call a real LLM when `OPENAI_API_KEY` is configured. Without credentials, deterministic fallbacks keep tests, CI, and local demos stable. Pinecone retrieval and LangSmith trace submission are still planned integration layers.
+The agents call Gemini when `GEMINI_API_KEY` or `GOOGLE_API_KEY` is configured. Without credentials, deterministic fallbacks keep tests, CI, and local demos stable. Pinecone retrieval and LangSmith trace submission are still planned integration layers.
 
 Minimum real-LLM configuration:
 
 ```bash
-OPENAI_API_KEY=sk-...
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4o-mini
+GEMINI_API_KEY=...
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
 LLM_ENABLED=true
 ```

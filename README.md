@@ -67,11 +67,12 @@ In another terminal:
 streamlit run frontend/streamlit_app.py
 ```
 
-The agents use real LLM calls when `OPENAI_API_KEY` is configured. Without credentials, they fall back to deterministic local implementations so tests, CI, and offline demos remain stable.
+The agents use real Gemini LLM calls when `GEMINI_API_KEY` or `GOOGLE_API_KEY` is configured. Without credentials, they fall back to deterministic local implementations so tests, CI, and offline demos remain stable.
 
 ```bash
-export OPENAI_API_KEY=...
-export LLM_MODEL=gpt-4o-mini
+export GEMINI_API_KEY=...
+export LLM_PROVIDER=gemini
+export LLM_MODEL=gemini-2.5-flash
 ```
 
 Database migrations are managed with Alembic:

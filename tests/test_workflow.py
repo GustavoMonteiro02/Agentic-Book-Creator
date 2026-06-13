@@ -20,6 +20,7 @@ def test_workflow_requires_structure_approval_before_chapter_generation():
 
 def test_workflow_generates_final_chapter_after_approval():
     workflow = SimpleBookWorkflow()
+    assert workflow.chapter_graph is not None
     state = {
         "project_id": "test",
         "initial_user_idea": "A practical book about AI agents for automation developers.",

@@ -15,7 +15,13 @@ class LLMClient:
         self.settings = get_settings()
 
     def is_configured(self) -> bool:
-        return bool(self.settings.llm_enabled and self.settings.openai_api_key)
+        if not self.settings.llm_enabled:
+            return False
+        if self.settings.llm_provider == "gemini":
+            return bool(self._gemini_api_key())
+        if self.settings.llm_provider == "openai":
+            return bool(self.settings.openai_api_key)
+        return False
 
     def generate_json(self, system_prompt: str, user_payload: dict, fallback: dict) -> dict:
         if not self.is_configured():
@@ -36,9 +42,30 @@ class LLMClient:
         return self._complete(system_prompt=system_prompt, user_content=json.dumps(user_payload, ensure_ascii=False))
 
     def _complete(self, system_prompt: str, user_content: str) -> str:
-        if self.settings.llm_provider != "openai":
-            raise LLMNotConfigured(f"Unsupported LLM provider: {self.settings.llm_provider}")
+        if self.settings.llm_provider == "gemini":
+            return self._complete_gemini(system_prompt=system_prompt, user_content=user_content)
+        if self.settings.llm_provider == "openai":
+            return self._complete_openai(system_prompt=system_prompt, user_content=user_content)
+        raise LLMNotConfigured(f"Unsupported LLM provider: {self.settings.llm_provider}")
 
+    def _complete_gemini(self, system_prompt: str, user_content: str) -> str:
+        try:
+            from google import genai
+        except ImportError as exc:
+            raise LLMNotConfigured("Install the google-genai package to enable Gemini calls.") from exc
+
+        api_key = self._gemini_api_key()
+        if not api_key:
+            raise LLMNotConfigured("Set GEMINI_API_KEY or GOOGLE_API_KEY to enable Gemini calls.")
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=self.settings.llm_model,
+            contents=f"System instructions:\n{system_prompt}\n\nUser payload:\n{user_content}",
+        )
+        return getattr(response, "text", "") or ""
+
+    def _complete_openai(self, system_prompt: str, user_content: str) -> str:
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -54,6 +81,9 @@ class LLMClient:
             ],
         )
         return response.choices[0].message.content or ""
+
+    def _gemini_api_key(self) -> str | None:
+        return self.settings.gemini_api_key or self.settings.google_api_key
 
 
 def _parse_json_or_fallback(content: str, fallback: dict) -> dict:
