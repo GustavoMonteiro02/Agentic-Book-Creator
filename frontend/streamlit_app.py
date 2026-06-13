@@ -10,6 +10,8 @@ from frontend.workflow_state import next_action, workflow_progress, workflow_ste
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 API_BASE_URL_FALLBACKS = os.getenv("API_BASE_URL_FALLBACKS", "")
+DEFAULT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("API_REQUEST_TIMEOUT_SECONDS", "30"))
+LLM_REQUEST_TIMEOUT_SECONDS = int(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "300"))
 
 st.set_page_config(page_title="Agentic Book Creator", layout="wide")
 st.title("Agentic Book Creator")
@@ -39,11 +41,12 @@ def api_base_urls() -> list[str]:
     return deduped
 
 
-def api_request(method: str, path: str, payload: dict | None = None):
+def api_request(method: str, path: str, payload: dict | None = None, timeout_seconds: int | None = None):
     errors = []
+    request_timeout = timeout_seconds or DEFAULT_REQUEST_TIMEOUT_SECONDS
     for base_url in api_base_urls():
         try:
-            response = requests.request(method, f"{base_url}{path}", json=payload or None, timeout=30)
+            response = requests.request(method, f"{base_url}{path}", json=payload or None, timeout=request_timeout)
             st.session_state.api_base_url = base_url
             if response.status_code == 409:
                 detail = _response_detail(response)
@@ -54,6 +57,14 @@ def api_request(method: str, path: str, payload: dict | None = None):
         except requests.HTTPError as exc:
             detail = _response_detail(exc.response) if exc.response is not None else str(exc)
             st.error(detail)
+            st.stop()
+        except requests.Timeout as exc:
+            st.error(
+                "The backend accepted the request, but the LLM workflow took longer than the UI waited. "
+                "Refresh the project in a moment, or increase `LLM_REQUEST_TIMEOUT_SECONDS` in Docker."
+            )
+            with st.expander("Timed out request"):
+                st.code(f"{base_url}{path}\nWaited {request_timeout} seconds.\n{exc}")
             st.stop()
         except requests.RequestException as exc:
             errors.append(f"{base_url}: {exc}")
@@ -73,8 +84,8 @@ def _response_detail(response: requests.Response) -> str:
     return data.get("detail") or str(data)
 
 
-def api_post(path: str, payload: dict | None = None):
-    return api_request("POST", path, payload)
+def api_post(path: str, payload: dict | None = None, timeout_seconds: int | None = None):
+    return api_request("POST", path, payload, timeout_seconds)
 
 
 def api_get(path: str):
@@ -122,7 +133,7 @@ if page == "Create Book":
             st.session_state.project = project
 
             st.write("Generating adaptive questions with Gemini.")
-            project = api_post(f"/projects/{project['project_id']}/questions")
+            project = api_post(f"/projects/{project['project_id']}/questions", timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS)
             st.session_state.project = project
             status.update(label="Project ready for input", state="complete")
 
@@ -142,7 +153,10 @@ if page == "Input Questions":
         if not st.session_state.project.get("input_questions"):
             if st.button("Generate adaptive questions", type="primary"):
                 with st.spinner("Generating adaptive questions with Gemini..."):
-                    project = api_post(f"/projects/{st.session_state.project_id}/questions")
+                    project = api_post(
+                        f"/projects/{st.session_state.project_id}/questions",
+                        timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+                    )
                 st.session_state.project = project
                 st.rerun()
 
@@ -157,7 +171,11 @@ if page == "Input Questions":
             with st.status("Building book brief, strategy, and structure...", expanded=True) as status:
                 st.write("Understanding your answers.")
                 st.write("Designing the book plan through the LangGraph workflow.")
-                project = api_post(f"/projects/{st.session_state.project_id}/answers", {"answers": answers})
+                project = api_post(
+                    f"/projects/{st.session_state.project_id}/answers",
+                    {"answers": answers},
+                    timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+                )
                 status.update(label="Book plan generated", state="complete")
             st.session_state.project = project
             st.success("Brief, strategy, and structure generated.")
@@ -165,7 +183,10 @@ if page == "Input Questions":
 
 if page == "Book Brief":
     if st.session_state.project_id:
-        project = api_post(f"/projects/{st.session_state.project_id}/requirements")
+        project = api_post(
+            f"/projects/{st.session_state.project_id}/requirements",
+            timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+        )
         st.session_state.project = project
         st.json(project.get("book_requirements", project))
     else:
@@ -173,7 +194,10 @@ if page == "Book Brief":
 
 if page == "Book Strategy":
     if st.session_state.project_id:
-        project = api_post(f"/projects/{st.session_state.project_id}/strategy")
+        project = api_post(
+            f"/projects/{st.session_state.project_id}/strategy",
+            timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+        )
         st.session_state.project = project
         st.json(project.get("book_strategy", project))
     else:
@@ -183,7 +207,10 @@ if page == "Book Structure":
     if not st.session_state.project_id:
         st.info("Create a project first.")
     else:
-        project = api_post(f"/projects/{st.session_state.project_id}/structure")
+        project = api_post(
+            f"/projects/{st.session_state.project_id}/structure",
+            timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+        )
         st.session_state.project = project
         st.json(project.get("book_structure", project))
         col1, col2 = st.columns(2)
@@ -225,7 +252,14 @@ if page == "Chapter Workspace":
 
         chapter_number = st.number_input("Chapter", min_value=1, value=1)
         if st.button("Generate chapter", type="primary", disabled=not structure_approved):
-            project = api_post(f"/projects/{st.session_state.project_id}/chapters/{chapter_number}/generate")
+            with st.status("Generating chapter with LangGraph and Gemini...", expanded=True) as status:
+                st.write("Planning the chapter.")
+                st.write("Writing, reviewing, and editing the draft.")
+                project = api_post(
+                    f"/projects/{st.session_state.project_id}/chapters/{chapter_number}/generate",
+                    timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+                )
+                status.update(label="Chapter generated", state="complete")
             st.session_state.project = project
         if st.session_state.project:
             st.subheader("Plan")
