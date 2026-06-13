@@ -81,6 +81,36 @@ Database migrations are managed with Alembic:
 make migrate
 ```
 
+## Docker
+
+Create a local `.env` with your Gemini key:
+
+```bash
+cp .env.example .env
+```
+
+Set:
+
+```env
+GEMINI_API_KEY=your_key_here
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
+LLM_ENABLED=true
+```
+
+Run the full stack:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- API: `http://localhost:8000`
+- UI: `http://localhost:8501`
+
+The API container runs Alembic migrations before starting FastAPI.
+
 ## Portfolio Narrative
 
 This project demonstrates the practical architecture behind agentic systems: stateful orchestration, structured intermediate artifacts, approval gates, persistence, observability, and evaluation-readiness. It is designed to grow from a runnable MVP into a complete AI Engineering portfolio case study.

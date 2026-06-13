@@ -9,15 +9,51 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_book_creator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build: .
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/agentic_book_creator
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-agentic-book-creator}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+
+  ui:
+    build: .
+    env_file:
+      - .env
+    environment:
+      API_BASE_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    command: >
+      streamlit run frontend/streamlit_app.py
+      --server.address 0.0.0.0
+      --server.port 8501
+      --server.headless true
+      --browser.gatherUsageStats false
 
 volumes:
   postgres_data:

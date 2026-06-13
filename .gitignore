@@ -5,5 +5,6 @@ __pycache__/
 .pytest_cache/
 .pycache/
 agentic_book_creator.db
+*.db
 data/outputs/*
 !data/outputs/.gitkeep

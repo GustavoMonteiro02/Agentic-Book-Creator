@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.pycache
+.env
+agentic_book_creator.db
+data/outputs/*

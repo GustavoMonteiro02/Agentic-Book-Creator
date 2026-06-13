@@ -7,6 +7,12 @@ make migrate
 uvicorn app.api.main:app --reload
 ```
 
+Or run the full Docker stack:
+
+```bash
+docker compose up --build
+```
+
 Base URL:
 
 ```text
