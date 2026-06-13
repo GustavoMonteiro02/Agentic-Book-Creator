@@ -42,9 +42,17 @@ def api_request(method: str, path: str, payload: dict | None = None):
     for base_url in api_base_urls():
         try:
             response = requests.request(method, f"{base_url}{path}", json=payload or None, timeout=30)
-            response.raise_for_status()
             st.session_state.api_base_url = base_url
+            if response.status_code == 409:
+                detail = _response_detail(response)
+                st.warning(detail)
+                st.stop()
+            response.raise_for_status()
             return response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
+        except requests.HTTPError as exc:
+            detail = _response_detail(exc.response) if exc.response is not None else str(exc)
+            st.error(detail)
+            st.stop()
         except requests.RequestException as exc:
             errors.append(f"{base_url}: {exc}")
 
@@ -53,6 +61,14 @@ def api_request(method: str, path: str, payload: dict | None = None):
         for error in errors:
             st.code(error)
     st.stop()
+
+
+def _response_detail(response: requests.Response) -> str:
+    try:
+        data = response.json()
+    except ValueError:
+        return response.text or f"Request failed with status {response.status_code}."
+    return data.get("detail") or str(data)
 
 
 def api_post(path: str, payload: dict | None = None):
@@ -133,8 +149,22 @@ if page == "Chapter Workspace":
     if not st.session_state.project_id:
         st.info("Create a project first.")
     else:
+        if not st.session_state.project:
+            st.session_state.project = api_get(f"/projects/{st.session_state.project_id}")
+
+        structure_approved = bool(st.session_state.project.get("structure_approved"))
+        if not structure_approved:
+            st.warning("Approve the book structure before generating chapters.")
+            if st.button("Approve structure now", type="primary"):
+                st.session_state.project = api_post(
+                    f"/projects/{st.session_state.project_id}/approve-structure",
+                    {"approved": True},
+                )
+                st.success("Structure approved. You can generate the chapter now.")
+                st.rerun()
+
         chapter_number = st.number_input("Chapter", min_value=1, value=1)
-        if st.button("Generate chapter", type="primary"):
+        if st.button("Generate chapter", type="primary", disabled=not structure_approved):
             project = api_post(f"/projects/{st.session_state.project_id}/chapters/{chapter_number}/generate")
             st.session_state.project = project
         if st.session_state.project:
