@@ -5,6 +5,8 @@ import os
 import requests
 import streamlit as st
 
+from frontend.workflow_state import next_action, workflow_progress, workflow_steps
+
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 API_BASE_URL_FALLBACKS = os.getenv("API_BASE_URL_FALLBACKS", "")
@@ -79,6 +81,32 @@ def api_get(path: str):
     return api_request("GET", path)
 
 
+def refresh_project():
+    if st.session_state.project_id:
+        st.session_state.project = api_get(f"/projects/{st.session_state.project_id}")
+
+
+def render_project_progress():
+    project = st.session_state.project
+    if not project:
+        return
+
+    st.sidebar.divider()
+    st.sidebar.caption("Current project")
+    st.sidebar.code(project.get("project_id", st.session_state.project_id), language="text")
+    st.sidebar.progress(workflow_progress(project))
+    for step in workflow_steps(project):
+        marker = "[x]" if step["complete"] else "[ ]"
+        st.sidebar.write(f"{marker} {step['label']}")
+    st.sidebar.info(next_action(project))
+    if st.sidebar.button("Refresh project"):
+        refresh_project()
+        st.rerun()
+
+
+render_project_progress()
+
+
 if page == "Create Book":
     title = st.text_input("Book title", "Building Agentic AI Systems")
     idea = st.text_area(
@@ -87,39 +115,67 @@ if page == "Create Book":
         height=180,
     )
     if st.button("Create project", type="primary"):
-        project = api_post("/projects", {"title": title, "initial_idea": idea})
+        with st.status("Starting LangGraph book workflow...", expanded=True) as status:
+            st.write("Creating project workspace.")
+            project = api_post("/projects", {"title": title, "initial_idea": idea})
+            st.session_state.project_id = project["project_id"]
+            st.session_state.project = project
+
+            st.write("Generating adaptive questions with Gemini.")
+            project = api_post(f"/projects/{project['project_id']}/questions")
+            st.session_state.project = project
+            status.update(label="Project ready for input", state="complete")
+
         st.session_state.project_id = project["project_id"]
         st.session_state.project = project
         st.success(f"Project created: {project['project_id']}")
+        st.info(next_action(project))
+        st.subheader("Adaptive Questions")
+        st.json(project.get("input_questions", []))
 
 if page == "Input Questions":
     if not st.session_state.project_id:
         st.info("Create a project first.")
-    elif st.button("Generate adaptive questions", type="primary"):
-        project = api_post(f"/projects/{st.session_state.project_id}/questions")
-        st.session_state.project = project
-        st.json(project.get("input_questions", []))
+    else:
+        if not st.session_state.project:
+            refresh_project()
+        if not st.session_state.project.get("input_questions"):
+            if st.button("Generate adaptive questions", type="primary"):
+                with st.spinner("Generating adaptive questions with Gemini..."):
+                    project = api_post(f"/projects/{st.session_state.project_id}/questions")
+                st.session_state.project = project
+                st.rerun()
 
     if st.session_state.project and st.session_state.project.get("input_questions"):
+        st.info(next_action(st.session_state.project))
         answers = []
         for question in st.session_state.project["input_questions"]:
             answer = st.text_input(question["question"], key=question["field"])
             if answer:
                 answers.append({"field": question["field"], "answer": answer})
         if answers and st.button("Submit answers"):
-            project = api_post(f"/projects/{st.session_state.project_id}/answers", {"answers": answers})
+            with st.status("Building book brief, strategy, and structure...", expanded=True) as status:
+                st.write("Understanding your answers.")
+                st.write("Designing the book plan through the LangGraph workflow.")
+                project = api_post(f"/projects/{st.session_state.project_id}/answers", {"answers": answers})
+                status.update(label="Book plan generated", state="complete")
             st.session_state.project = project
             st.success("Brief, strategy, and structure generated.")
+            st.info(next_action(project))
 
 if page == "Book Brief":
     if st.session_state.project_id:
-        st.json(api_post(f"/projects/{st.session_state.project_id}/requirements"))
+        project = api_post(f"/projects/{st.session_state.project_id}/requirements")
+        st.session_state.project = project
+        st.json(project.get("book_requirements", project))
     else:
         st.info("Create a project first.")
 
 if page == "Book Strategy":
     if st.session_state.project_id:
-        st.json(api_post(f"/projects/{st.session_state.project_id}/strategy"))
+        project = api_post(f"/projects/{st.session_state.project_id}/strategy")
+        st.session_state.project = project
+        st.json(project.get("book_strategy", project))
     else:
         st.info("Create a project first.")
 
@@ -127,7 +183,9 @@ if page == "Book Structure":
     if not st.session_state.project_id:
         st.info("Create a project first.")
     else:
-        st.json(api_post(f"/projects/{st.session_state.project_id}/structure"))
+        project = api_post(f"/projects/{st.session_state.project_id}/structure")
+        st.session_state.project = project
+        st.json(project.get("book_structure", project))
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Approve structure", type="primary"):
@@ -136,6 +194,7 @@ if page == "Book Structure":
                     {"approved": True},
                 )
                 st.success("Structure approved.")
+                st.rerun()
         with col2:
             revision = st.text_input("Revision request")
             if st.button("Request revision") and revision:
@@ -144,6 +203,7 @@ if page == "Book Structure":
                     {"approved": False, "revision_request": revision},
                 )
                 st.warning("Revision request saved.")
+                st.rerun()
 
 if page == "Chapter Workspace":
     if not st.session_state.project_id:
