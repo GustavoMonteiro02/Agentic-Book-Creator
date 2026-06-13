@@ -111,6 +111,12 @@ Then open:
 
 The API container runs Alembic migrations before starting FastAPI.
 
+If you run Streamlit outside Docker, point it to the API explicitly:
+
+```bash
+API_BASE_URL=http://127.0.0.1:8000 streamlit run frontend/streamlit_app.py
+```
+
 ## Portfolio Narrative
 
 This project demonstrates the practical architecture behind agentic systems: stateful orchestration, structured intermediate artifacts, approval gates, persistence, observability, and evaluation-readiness. It is designed to grow from a runnable MVP into a complete AI Engineering portfolio case study.

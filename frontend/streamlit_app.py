@@ -7,6 +7,7 @@ import streamlit as st
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+API_BASE_URL_FALLBACKS = os.getenv("API_BASE_URL_FALLBACKS", "")
 
 st.set_page_config(page_title="Agentic Book Creator", layout="wide")
 st.title("Agentic Book Creator")
@@ -22,16 +23,44 @@ page = st.sidebar.radio(
 )
 
 
+def api_base_urls() -> list[str]:
+    urls = [st.session_state.get("api_base_url") or API_BASE_URL]
+    urls.extend(url.strip() for url in API_BASE_URL_FALLBACKS.split(",") if url.strip())
+    if "://api:" in API_BASE_URL:
+        urls.extend(["http://host.docker.internal:8000", "http://127.0.0.1:8000"])
+
+    deduped = []
+    for url in urls:
+        normalized = url.rstrip("/")
+        if normalized and normalized not in deduped:
+            deduped.append(normalized)
+    return deduped
+
+
+def api_request(method: str, path: str, payload: dict | None = None):
+    errors = []
+    for base_url in api_base_urls():
+        try:
+            response = requests.request(method, f"{base_url}{path}", json=payload or None, timeout=30)
+            response.raise_for_status()
+            st.session_state.api_base_url = base_url
+            return response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
+        except requests.RequestException as exc:
+            errors.append(f"{base_url}: {exc}")
+
+    st.error("Could not connect to the FastAPI backend. If you are using Docker, start the full stack with `docker compose up --build`.")
+    with st.expander("Connection attempts"):
+        for error in errors:
+            st.code(error)
+    st.stop()
+
+
 def api_post(path: str, payload: dict | None = None):
-    response = requests.post(f"{API_BASE_URL}{path}", json=payload or {}, timeout=30)
-    response.raise_for_status()
-    return response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
+    return api_request("POST", path, payload)
 
 
 def api_get(path: str):
-    response = requests.get(f"{API_BASE_URL}{path}", timeout=30)
-    response.raise_for_status()
-    return response.json()
+    return api_request("GET", path)
 
 
 if page == "Create Book":
