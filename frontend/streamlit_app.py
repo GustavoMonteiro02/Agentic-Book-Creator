@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 import os
+from textwrap import dedent
 
 import requests
 import streamlit as st
@@ -48,7 +49,8 @@ WORKFLOW_STEP_DETAILS = {
 st.set_page_config(page_title="Agentic Book Creator", layout="wide")
 st.title("Agentic Book Creator")
 st.markdown(
-    """
+    dedent(
+        """
     <style>
     section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-panel {
         border: 1px solid rgba(148, 163, 184, 0.24);
@@ -145,7 +147,8 @@ st.markdown(
         margin: 0 0 10px;
     }
     </style>
-    """,
+    """
+    ),
     unsafe_allow_html=True,
 )
 
@@ -225,9 +228,60 @@ def api_get(path: str):
     return api_request("GET", path)
 
 
+def api_get_optional(path: str):
+    for base_url in api_base_urls():
+        try:
+            response = requests.get(f"{base_url}{path}", timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            st.session_state.api_base_url = base_url
+            return response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
+        except requests.RequestException:
+            continue
+    return None
+
+
 def refresh_project():
     if st.session_state.project_id:
         st.session_state.project = api_get(f"/projects/{st.session_state.project_id}")
+
+
+def project_label(project: dict) -> str:
+    title = project.get("title") or "Untitled book"
+    status = project.get("status") or "draft"
+    project_id = project.get("project_id", "")
+    suffix = project_id[:8] if project_id else "new"
+    return f"{title} - {status} - {suffix}"
+
+
+def restore_project(project: dict):
+    st.session_state.project_id = project["project_id"]
+    st.session_state.project = project
+
+
+def render_project_picker():
+    projects = api_get_optional("/projects") or []
+    if not projects:
+        return
+
+    if not st.session_state.project_id:
+        restore_project(projects[0])
+
+    options = [project["project_id"] for project in projects]
+    current_index = options.index(st.session_state.project_id) if st.session_state.project_id in options else 0
+    project_lookup = {project["project_id"]: project for project in projects}
+
+    st.sidebar.caption("Resume project")
+    selected_id = st.sidebar.selectbox(
+        "Saved projects",
+        options,
+        index=current_index,
+        format_func=lambda project_id: project_label(project_lookup[project_id]),
+        label_visibility="collapsed",
+    )
+    if selected_id != st.session_state.project_id:
+        selected_project = api_get_optional(f"/projects/{selected_id}") or project_lookup[selected_id]
+        restore_project(selected_project)
+        st.rerun()
 
 
 def render_agent_activity(steps: list[tuple[str, str]]):
@@ -262,24 +316,19 @@ def render_workflow_timeline(project: dict):
         marker = "OK" if complete else str(index + 1)
         pill = '<div class="workflow-pill">Now</div>' if is_active else ""
         items.append(
-            f"""
-            <div class="workflow-step {css_class}">
-                <div class="workflow-marker">{marker}</div>
-                <div>
-                    <div class="workflow-label">{escape(label)}</div>
-                    <div class="workflow-desc">{escape(WORKFLOW_STEP_DETAILS.get(label, ""))}</div>
-                    {pill}
-                </div>
-            </div>
-            """
+            (
+                f'<div class="workflow-step {css_class}">'
+                f'<div class="workflow-marker">{marker}</div>'
+                "<div>"
+                f'<div class="workflow-label">{escape(label)}</div>'
+                f'<div class="workflow-desc">{escape(WORKFLOW_STEP_DETAILS.get(label, ""))}</div>'
+                f"{pill}"
+                "</div>"
+                "</div>"
+            )
         )
     st.sidebar.markdown(
-        f"""
-        <div class="workflow-panel">
-            <div class="workflow-kicker">Workflow progress</div>
-            {''.join(items)}
-        </div>
-        """,
+        f'<div class="workflow-panel"><div class="workflow-kicker">Workflow progress</div>{"".join(items)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -305,6 +354,7 @@ def render_project_progress():
         st.rerun()
 
 
+render_project_picker()
 render_project_progress()
 
 
