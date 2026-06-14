@@ -16,6 +16,25 @@ API_BASE_URL_FALLBACKS = os.getenv("API_BASE_URL_FALLBACKS", "")
 DEFAULT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("API_REQUEST_TIMEOUT_SECONDS", "30"))
 LLM_REQUEST_TIMEOUT_SECONDS = int(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "300"))
 
+QUESTION_AGENT_STEPS = [
+    ("Input Gathering Agent", "Reads the book idea and decides what context is missing."),
+    ("Gemini", "Turns the idea into adaptive questions for the author."),
+    ("Checkpoint Service", "Saves the questions and records the workflow run."),
+]
+BOOK_PLAN_AGENT_STEPS = [
+    ("Input Understanding Agent", "Extracts audience, goals, tone, constraints, and source preferences from the answers."),
+    ("Book Strategy Agent", "Chooses positioning, reader promise, learning path, and differentiation."),
+    ("Structure Designer Agent", "Builds the parts, chapters, outcomes, and approval-ready outline."),
+    ("Checkpoint Service", "Stores the plan so the next agent can continue from the same state."),
+]
+CHAPTER_AGENT_STEPS = [
+    ("Chapter Planner Agent", "Selects the chapter objective, key concepts, examples, and exercises."),
+    ("Chapter Writer Agent", "Drafts the chapter from the approved structure and project memory."),
+    ("Technical Reviewer Agent", "Checks technical accuracy, gaps, and implementation clarity."),
+    ("Editor Agent", "Rewrites the draft into the final chapter markdown."),
+    ("Checkpoint Service", "Stores the final chapter and run metadata."),
+]
+
 st.set_page_config(page_title="Agentic Book Creator", layout="wide")
 st.title("Agentic Book Creator")
 
@@ -100,6 +119,26 @@ def refresh_project():
         st.session_state.project = api_get(f"/projects/{st.session_state.project_id}")
 
 
+def render_agent_activity(steps: list[tuple[str, str]]):
+    for index, (agent_name, work) in enumerate(steps, start=1):
+        st.write(f"{index}. **{agent_name}**")
+        st.caption(work)
+
+
+def render_latest_runs(project: dict):
+    runs = project.get("execution_runs", [])[-5:]
+    if not runs:
+        return
+
+    with st.sidebar.expander("Recent agent runs"):
+        for run in reversed(runs):
+            metadata = run.get("llm_metadata", {})
+            provider = metadata.get("llm_provider", "llm")
+            model = metadata.get("llm_model_version", "configured model")
+            st.caption(f"{run.get('run_type', 'workflow')} - {run.get('status', 'unknown')}")
+            st.write(f"{provider} / {model}")
+
+
 def render_project_progress():
     project = st.session_state.project
     if not project:
@@ -113,6 +152,7 @@ def render_project_progress():
         marker = "[x]" if step["complete"] else "[ ]"
         st.sidebar.write(f"{marker} {step['label']}")
     st.sidebar.info(next_action(project))
+    render_latest_runs(project)
     if st.sidebar.button("Refresh project"):
         refresh_project()
         st.rerun()
@@ -136,6 +176,7 @@ if page == "Create Book":
             st.session_state.project = project
 
             st.write("Generating adaptive questions with Gemini.")
+            render_agent_activity(QUESTION_AGENT_STEPS)
             project = api_post(f"/projects/{project['project_id']}/questions", timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS)
             st.session_state.project = project
             status.update(label="Project ready for input", state="complete")
@@ -155,11 +196,13 @@ if page == "Input Questions":
             refresh_project()
         if not st.session_state.project.get("input_questions"):
             if st.button("Generate adaptive questions", type="primary"):
-                with st.spinner("Generating adaptive questions with Gemini..."):
+                with st.status("Generating adaptive questions with Gemini...", expanded=True) as status:
+                    render_agent_activity(QUESTION_AGENT_STEPS)
                     project = api_post(
                         f"/projects/{st.session_state.project_id}/questions",
                         timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
                     )
+                    status.update(label="Questions generated", state="complete")
                 st.session_state.project = project
                 st.rerun()
 
@@ -172,8 +215,7 @@ if page == "Input Questions":
                 answers.append({"field": question["field"], "answer": answer})
         if answers and st.button("Submit answers"):
             with st.status("Building book brief, strategy, and structure...", expanded=True) as status:
-                st.write("Understanding your answers.")
-                st.write("Designing the book plan through the LangGraph workflow.")
+                render_agent_activity(BOOK_PLAN_AGENT_STEPS)
                 project = api_post(
                     f"/projects/{st.session_state.project_id}/answers",
                     {"answers": answers},
@@ -256,8 +298,7 @@ if page == "Chapter Workspace":
         chapter_number = st.number_input("Chapter", min_value=1, value=1)
         if st.button("Generate chapter", type="primary", disabled=not structure_approved):
             with st.status("Generating chapter with LangGraph and Gemini...", expanded=True) as status:
-                st.write("Planning the chapter.")
-                st.write("Writing, reviewing, and editing the draft.")
+                render_agent_activity(CHAPTER_AGENT_STEPS)
                 project = api_post(
                     f"/projects/{st.session_state.project_id}/chapters/{chapter_number}/generate",
                     timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
