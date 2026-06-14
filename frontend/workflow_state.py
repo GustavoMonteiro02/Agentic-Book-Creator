@@ -12,7 +12,7 @@ class WorkflowStep:
 
 WORKFLOW_STEPS = (
     WorkflowStep("Project", lambda project: bool(project.get("project_id"))),
-    WorkflowStep("Questions", lambda project: bool(project.get("input_questions"))),
+    WorkflowStep("Questions", lambda project: bool(project.get("input_questions") or project.get("book_requirements"))),
     WorkflowStep("Brief", lambda project: bool(project.get("book_requirements"))),
     WorkflowStep("Strategy", lambda project: bool(project.get("book_strategy"))),
     WorkflowStep("Structure", lambda project: bool(project.get("book_structure"))),
@@ -37,7 +37,7 @@ def next_action(project: dict | None) -> str:
     project = project or {}
     if not project.get("project_id"):
         return "Create a project to start the LangGraph workflow."
-    if not project.get("input_questions"):
+    if not project.get("input_questions") and not project.get("book_requirements"):
         return "Generate adaptive questions from the initial book idea."
     if not project.get("book_requirements"):
         return "Answer the adaptive questions so Gemini can build the brief, strategy, and structure."

@@ -245,6 +245,21 @@ def refresh_project():
         st.session_state.project = api_get(f"/projects/{st.session_state.project_id}")
 
 
+def ensure_project_loaded():
+    if st.session_state.project_id and not _looks_like_project(st.session_state.project):
+        refresh_project()
+
+
+def _looks_like_project(project: dict | None) -> bool:
+    return bool(project and project.get("project_id"))
+
+
+def set_project_artifact(field: str, value):
+    ensure_project_loaded()
+    if st.session_state.project:
+        st.session_state.project[field] = value
+
+
 def project_label(project: dict) -> str:
     title = project.get("title") or "Untitled book"
     status = project.get("status") or "draft"
@@ -302,6 +317,82 @@ def render_latest_runs(project: dict):
             model = metadata.get("llm_model_version", "configured model")
             st.caption(f"{run.get('run_type', 'workflow')} - {run.get('status', 'unknown')}")
             st.write(f"{provider} / {model}")
+
+
+def flatten_structure_chapters(structure: dict) -> list[dict]:
+    chapters = []
+    for part in structure.get("parts", []):
+        part_title = part.get("part_title", "Untitled part")
+        for chapter in part.get("chapters", []):
+            chapters.append({**chapter, "part_title": part_title})
+    return chapters
+
+
+def render_structure_overview(structure: dict):
+    if not structure:
+        st.info("No book structure has been generated yet. Submit the input answers first.")
+        return
+
+    project = st.session_state.project or {}
+    chapters = flatten_structure_chapters(structure)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Parts", len(structure.get("parts", [])))
+    col2.metric("Chapters", len(chapters))
+    col3.metric("Approval", "Approved" if project.get("structure_approved") else "Pending")
+
+    st.subheader(structure.get("book_title", "Book structure"))
+    for part_index, part in enumerate(structure.get("parts", []), start=1):
+        st.markdown(f"### Part {part_index}: {part.get('part_title', 'Untitled part')}")
+        st.caption(part.get("part_goal", "No part goal provided."))
+        for chapter in part.get("chapters", []):
+            chapter_number = chapter.get("chapter_number", "?")
+            title = chapter.get("title", "Untitled chapter")
+            with st.expander(f"Chapter {chapter_number}: {title}", expanded=chapter_number == 1):
+                st.write(chapter.get("goal", "No chapter goal provided."))
+                sections = chapter.get("sections", [])
+                if sections:
+                    st.markdown("**Sections**")
+                    for section in sections:
+                        st.write(f"- {section.get('title', 'Untitled section')}: {section.get('purpose', 'No purpose provided.')}")
+                st.markdown("**Practical example**")
+                st.write(chapter.get("practical_example", "Not specified."))
+                st.markdown("**Mini project**")
+                st.write(chapter.get("mini_project", "Not specified."))
+                exercises = chapter.get("exercises", [])
+                if exercises:
+                    st.markdown("**Exercises**")
+                    for exercise in exercises:
+                        st.write(f"- {exercise}")
+
+
+def render_workflow_debug(project: dict, structure: dict | None = None):
+    st.subheader("Workflow Debug")
+    st.caption("Use this view to inspect what each agent produced and what state the next agent will receive.")
+
+    latest_runs = project.get("execution_runs", [])[-8:]
+    if latest_runs:
+        st.markdown("**Recent runs**")
+        for run in reversed(latest_runs):
+            metadata = run.get("llm_metadata", {})
+            with st.expander(f"{run.get('run_type', 'workflow')} - {run.get('status', 'unknown')}", expanded=False):
+                st.write(f"Provider: {metadata.get('llm_provider', 'unknown')}")
+                st.write(f"Model: {metadata.get('llm_model_version', 'unknown')}")
+                st.write(f"Route: {metadata.get('model_route', 'unknown')}")
+                st.json(metadata)
+    else:
+        st.info("No workflow runs have been recorded for this project yet.")
+
+    revision_requests = project.get("structure_revision_requests", [])
+    if revision_requests:
+        st.markdown("**Revision requests**")
+        for index, request in enumerate(revision_requests, start=1):
+            st.write(f"{index}. {request}")
+
+    with st.expander("Current project state"):
+        st.json(project)
+    if structure is not None:
+        with st.expander("Raw structure object"):
+            st.json(structure)
 
 
 def render_workflow_timeline(project: dict):
@@ -425,23 +516,31 @@ if page == "Input Questions":
 
 if page == "Book Brief":
     if st.session_state.project_id:
-        project = api_post(
+        requirements = api_post(
             f"/projects/{st.session_state.project_id}/requirements",
             timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
         )
-        st.session_state.project = project
-        st.json(project.get("book_requirements", project))
+        set_project_artifact("book_requirements", requirements)
+        st.subheader("Book Brief")
+        st.json(requirements)
+        if st.session_state.project:
+            with st.expander("Debug project state"):
+                st.json(st.session_state.project)
     else:
         st.info("Create a project first.")
 
 if page == "Book Strategy":
     if st.session_state.project_id:
-        project = api_post(
+        strategy = api_post(
             f"/projects/{st.session_state.project_id}/strategy",
             timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
         )
-        st.session_state.project = project
-        st.json(project.get("book_strategy", project))
+        set_project_artifact("book_strategy", strategy)
+        st.subheader("Book Strategy")
+        st.json(strategy)
+        if st.session_state.project:
+            with st.expander("Debug project state"):
+                st.json(st.session_state.project)
     else:
         st.info("Create a project first.")
 
@@ -449,29 +548,51 @@ if page == "Book Structure":
     if not st.session_state.project_id:
         st.info("Create a project first.")
     else:
-        project = api_post(
+        ensure_project_loaded()
+        structure = api_post(
             f"/projects/{st.session_state.project_id}/structure",
             timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
         )
-        st.session_state.project = project
-        st.json(project.get("book_structure", project))
+        set_project_artifact("book_structure", structure)
+        project = st.session_state.project or {}
+
+        st.subheader("Book Structure")
+        st.caption("Review the outline before the chapter agents are allowed to run.")
+        overview_tab, agent_tab, raw_tab = st.tabs(["Overview", "Agent trace", "Raw/debug"])
+        with overview_tab:
+            render_structure_overview(structure)
+        with agent_tab:
+            st.markdown("**How this structure was created**")
+            render_agent_activity(BOOK_PLAN_AGENT_STEPS)
+            st.info("The human approval gate prevents chapter generation until this outline is approved.")
+            render_workflow_debug(project, structure)
+        with raw_tab:
+            st.markdown("**Raw structure JSON**")
+            st.json(structure)
+            st.markdown("**Full project state**")
+            st.json(project)
+
+        st.divider()
+        st.subheader("Approval Gate")
         col1, col2 = st.columns(2)
         with col1:
+            st.caption("Approve when the outline is good enough for chapter generation.")
             if st.button("Approve structure", type="primary"):
                 st.session_state.project = api_post(
                     f"/projects/{st.session_state.project_id}/approve-structure",
                     {"approved": True},
                 )
-                st.success("Structure approved.")
+                st.success("Structure approved. Chapter agents are now unlocked.")
                 st.rerun()
         with col2:
-            revision = st.text_input("Revision request")
-            if st.button("Request revision") and revision:
+            st.caption("Requesting revision records feedback and keeps the chapter agents locked.")
+            revision = st.text_area("Revision request", height=120, placeholder="Example: Make chapters shorter and add more PDF/RAG examples.")
+            if st.button("Request revision", disabled=not bool(revision.strip())):
                 st.session_state.project = api_post(
                     f"/projects/{st.session_state.project_id}/approve-structure",
-                    {"approved": False, "revision_request": revision},
+                    {"approved": False, "revision_request": revision.strip()},
                 )
-                st.warning("Revision request saved.")
+                st.warning("Revision request saved. Regenerate the book plan after adjusting answers or prompts.")
                 st.rerun()
 
 if page == "Chapter Workspace":

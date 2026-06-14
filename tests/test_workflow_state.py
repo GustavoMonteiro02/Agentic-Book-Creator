@@ -33,3 +33,17 @@ def test_next_action_points_to_approval_after_structure_generation():
     }
 
     assert next_action(project) == "Review and approve the book structure."
+
+
+def test_questions_are_complete_when_plan_already_exists():
+    project = {
+        "project_id": "book-1",
+        "book_requirements": {"audience": "developers"},
+        "book_strategy": {"positioning": "practical"},
+        "book_structure": {"chapters": []},
+    }
+
+    steps = workflow_steps(project)
+
+    assert steps[1] == {"label": "Questions", "complete": True}
+    assert next_action(project) == "Review and approve the book structure."
