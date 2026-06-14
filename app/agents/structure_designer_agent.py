@@ -6,6 +6,7 @@ from app.prompts.structure_designer_prompt import STRUCTURE_DESIGNER_PROMPT
 def design_structure(state: BookState) -> BookState:
     strategy = state.get("book_strategy", {})
     title = strategy.get("suggested_title", "Building Agentic AI Systems")
+    revision_requests = state.get("structure_revision_requests", [])
 
     structure = {
         "book_title": title,
@@ -52,14 +53,32 @@ def design_structure(state: BookState) -> BookState:
             },
         ],
     }
+    structure = _apply_revision_fallback(structure, revision_requests)
 
     structure = llm_client.generate_json(
         system_prompt=STRUCTURE_DESIGNER_PROMPT,
         user_payload={
             "book_requirements": state.get("book_requirements", {}),
             "book_strategy": strategy,
+            "existing_structure": state.get("book_structure", {}),
+            "revision_requests": revision_requests,
         },
         fallback=structure,
     )
 
     return {**state, "book_structure": structure, "status": "structure_ready"}
+
+
+def _apply_revision_fallback(structure: dict, revision_requests: list[str]) -> dict:
+    latest_revision = revision_requests[-1].lower() if revision_requests else ""
+    if not any(word in latest_revision for word in ["small", "short", "smaller", "curto", "curta"]):
+        return structure
+
+    first_part = dict(structure["parts"][0])
+    first_chapter = dict(first_part["chapters"][0])
+    first_chapter["sections"] = first_chapter.get("sections", [])[:2]
+    first_chapter["exercises"] = first_chapter.get("exercises", [])[:1]
+    first_chapter["goal"] = f"{first_chapter['goal']} Keep the scope intentionally compact."
+    first_part["part_goal"] = f"{first_part['part_goal']} This revision keeps the outline smaller."
+    first_part["chapters"] = [first_chapter]
+    return {**structure, "parts": [first_part]}

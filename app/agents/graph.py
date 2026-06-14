@@ -27,6 +27,7 @@ class SimpleBookWorkflow:
                 ("design_structure", design_structure),
             ]
         )
+        self.structure_revision_graph = _compile_linear_graph([("design_structure", design_structure)])
         self.chapter_graph = _compile_linear_graph(
             [
                 ("plan_chapter", plan_chapter),
@@ -41,6 +42,9 @@ class SimpleBookWorkflow:
 
     def create_book_plan(self, state: BookState) -> BookState:
         return self.book_plan_graph.invoke(dict(state))
+
+    def revise_structure(self, state: BookState) -> BookState:
+        return self.structure_revision_graph.invoke(dict(state))
 
     def generate_chapter(self, state: BookState) -> BookState:
         if not state.get("structure_approved"):

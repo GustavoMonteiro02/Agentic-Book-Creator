@@ -28,6 +28,7 @@ class BookService:
         state["structure_approved"] = approved
         if revision_request:
             state["structure_revision_requests"] = [*state.get("structure_revision_requests", []), revision_request]
+            state = self.workflow.revise_structure(state)
         state["status"] = "structure_approved" if approved else "structure_revision_requested"
         state = record_run(state, "structure_approval" if approved else "structure_revision")
         return project_repository.save(state)

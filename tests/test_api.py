@@ -87,3 +87,44 @@ def test_approved_project_can_generate_chapter_step_by_step():
     assert diagnostics["quality_signals"]["has_technical_review"] is True
     assert diagnostics["debugging_checklist"]
     assert any(item["category"] == "rag_grounding" for item in diagnostics["debugging_checklist"])
+
+
+def test_structure_revision_regenerates_outline_and_records_run():
+    client = TestClient(app)
+    create_response = client.post(
+        "/projects",
+        json={
+            "title": "Agentic AI for Automation",
+            "initial_idea": "Quero um livro prático sobre agentes de IA para RPA developers com código.",
+        },
+    )
+    project_id = create_response.json()["project_id"]
+
+    answers_response = client.post(
+        f"/projects/{project_id}/answers",
+        json={
+            "answers": [
+                {"field": "tone", "answer": "prático"},
+                {"field": "reader_level", "answer": "intermédio"},
+                {"field": "preferred_structure", "answer": "do básico ao avançado por projetos"},
+            ]
+        },
+    )
+    original_structure = answers_response.json()["book_structure"]
+    assert len(original_structure["parts"]) == 2
+
+    revision_response = client.post(
+        f"/projects/{project_id}/approve-structure",
+        json={"approved": False, "revision_request": "make it small"},
+    )
+
+    assert revision_response.status_code == 200
+    revised_project = revision_response.json()
+    assert revised_project["structure_revision_requests"] == ["make it small"]
+    assert revised_project["structure_approved"] is False
+    assert len(revised_project["book_structure"]["parts"]) == 1
+    assert "compact" in revised_project["book_structure"]["parts"][0]["chapters"][0]["goal"]
+
+    run_types = [run["run_type"] for run in revised_project["execution_runs"]]
+    assert "book_plan" in run_types
+    assert "structure_revision" in run_types

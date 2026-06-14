@@ -29,6 +29,12 @@ BOOK_PLAN_AGENT_STEPS = [
     ("Structure Designer Agent", "Builds the parts, chapters, outcomes, and approval-ready outline."),
     ("Checkpoint Service", "Stores the plan so the next agent can continue from the same state."),
 ]
+STRUCTURE_REVISION_AGENT_STEPS = [
+    ("Human Feedback Gate", "Captures the revision request and locks chapter generation."),
+    ("Structure Designer Agent", "Revises the existing outline using the latest feedback."),
+    ("Gemini", "Applies the requested structure change while preserving usable parts."),
+    ("Checkpoint Service", "Stores the revised structure and revision run metadata."),
+]
 CHAPTER_AGENT_STEPS = [
     ("Chapter Planner Agent", "Selects the chapter objective, key concepts, examples, and exercises."),
     ("Chapter Writer Agent", "Drafts the chapter from the approved structure and project memory."),
@@ -365,6 +371,18 @@ def render_structure_overview(structure: dict):
                         st.write(f"- {exercise}")
 
 
+def render_book_plan_summary(project: dict):
+    st.subheader("Generated Plan")
+    brief, strategy, structure = st.tabs(["Brief", "Strategy", "Structure"])
+    with brief:
+        st.json(project.get("book_requirements", {}))
+    with strategy:
+        st.json(project.get("book_strategy", {}))
+    with structure:
+        render_structure_overview(project.get("book_structure", {}))
+    render_workflow_debug(project, project.get("book_structure", {}))
+
+
 def render_workflow_debug(project: dict, structure: dict | None = None):
     st.subheader("Workflow Debug")
     st.caption("Use this view to inspect what each agent produced and what state the next agent will receive.")
@@ -513,6 +531,7 @@ if page == "Input Questions":
             st.session_state.project = project
             st.success("Brief, strategy, and structure generated.")
             st.info(next_action(project))
+            render_book_plan_summary(project)
 
 if page == "Book Brief":
     if st.session_state.project_id:
@@ -588,11 +607,15 @@ if page == "Book Structure":
             st.caption("Requesting revision records feedback and keeps the chapter agents locked.")
             revision = st.text_area("Revision request", height=120, placeholder="Example: Make chapters shorter and add more PDF/RAG examples.")
             if st.button("Request revision", disabled=not bool(revision.strip())):
-                st.session_state.project = api_post(
-                    f"/projects/{st.session_state.project_id}/approve-structure",
-                    {"approved": False, "revision_request": revision.strip()},
-                )
-                st.warning("Revision request saved. Regenerate the book plan after adjusting answers or prompts.")
+                with st.status("Revising structure with agent feedback...", expanded=True) as status:
+                    render_agent_activity(STRUCTURE_REVISION_AGENT_STEPS)
+                    st.session_state.project = api_post(
+                        f"/projects/{st.session_state.project_id}/approve-structure",
+                        {"approved": False, "revision_request": revision.strip()},
+                        timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
+                    )
+                    status.update(label="Structure revision complete", state="complete")
+                st.warning("Revision applied. Review the updated structure before approving.")
                 st.rerun()
 
 if page == "Chapter Workspace":
