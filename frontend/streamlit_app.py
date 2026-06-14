@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import os
 
 import requests
@@ -34,9 +35,119 @@ CHAPTER_AGENT_STEPS = [
     ("Editor Agent", "Rewrites the draft into the final chapter markdown."),
     ("Checkpoint Service", "Stores the final chapter and run metadata."),
 ]
+WORKFLOW_STEP_DETAILS = {
+    "Project": "Workspace and book idea",
+    "Questions": "Adaptive author inputs",
+    "Brief": "Audience, goals, constraints",
+    "Strategy": "Positioning and learning path",
+    "Structure": "Parts, chapters, outcomes",
+    "Approved": "Human approval gate",
+    "Chapter": "Generated markdown draft",
+}
 
 st.set_page_config(page_title="Agentic Book Creator", layout="wide")
 st.title("Agentic Book Creator")
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-panel {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 12px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.36);
+        margin: 10px 0 14px;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-kicker {
+        color: rgba(226, 232, 240, 0.68);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-step {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        padding: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        background: rgba(30, 41, 59, 0.34);
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-step.done {
+        border-color: rgba(34, 197, 94, 0.42);
+        background: rgba(22, 101, 52, 0.16);
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-step.active {
+        border-color: rgba(96, 165, 250, 0.58);
+        background: rgba(30, 64, 175, 0.22);
+        box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.9);
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-marker {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        background: rgba(148, 163, 184, 0.16);
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-step.done .workflow-marker {
+        color: #dcfce7;
+        background: rgba(34, 197, 94, 0.34);
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-step.active .workflow-marker {
+        color: #eff6ff;
+        background: rgba(59, 130, 246, 0.88);
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-label {
+        color: #f8fafc;
+        font-size: 0.95rem;
+        font-weight: 760;
+        line-height: 1.15;
+        margin-bottom: 3px;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-desc {
+        color: rgba(226, 232, 240, 0.62);
+        font-size: 0.76rem;
+        line-height: 1.25;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-pill {
+        display: inline-block;
+        color: #bfdbfe;
+        background: rgba(37, 99, 235, 0.22);
+        border: 1px solid rgba(96, 165, 250, 0.24);
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 0.68rem;
+        font-weight: 760;
+        margin-top: 7px;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-next {
+        border: 1px solid rgba(96, 165, 250, 0.32);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(37, 99, 235, 0.18);
+        color: #dbeafe;
+        margin: 8px 0 12px;
+        line-height: 1.35;
+        font-size: 0.86rem;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] .workflow-id {
+        color: rgba(226, 232, 240, 0.74);
+        font-size: 0.72rem;
+        overflow-wrap: anywhere;
+        margin: 0 0 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 if "project_id" not in st.session_state:
     st.session_state.project_id = None
@@ -139,21 +250,57 @@ def render_latest_runs(project: dict):
             st.write(f"{provider} / {model}")
 
 
+def render_workflow_timeline(project: dict):
+    steps = workflow_steps(project)
+    active_index = next((index for index, step in enumerate(steps) if not step["complete"]), len(steps) - 1)
+    items = []
+    for index, step in enumerate(steps):
+        label = str(step["label"])
+        complete = bool(step["complete"])
+        is_active = index == active_index and not complete
+        css_class = "done" if complete else "active" if is_active else "pending"
+        marker = "OK" if complete else str(index + 1)
+        pill = '<div class="workflow-pill">Now</div>' if is_active else ""
+        items.append(
+            f"""
+            <div class="workflow-step {css_class}">
+                <div class="workflow-marker">{marker}</div>
+                <div>
+                    <div class="workflow-label">{escape(label)}</div>
+                    <div class="workflow-desc">{escape(WORKFLOW_STEP_DETAILS.get(label, ""))}</div>
+                    {pill}
+                </div>
+            </div>
+            """
+        )
+    st.sidebar.markdown(
+        f"""
+        <div class="workflow-panel">
+            <div class="workflow-kicker">Workflow progress</div>
+            {''.join(items)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_project_progress():
-    project = st.session_state.project
-    if not project:
-        return
+    project = st.session_state.project or {}
 
     st.sidebar.divider()
     st.sidebar.caption("Current project")
-    st.sidebar.code(project.get("project_id", st.session_state.project_id), language="text")
+    if project.get("project_id") or st.session_state.project_id:
+        st.sidebar.markdown(
+            f'<div class="workflow-id">{escape(project.get("project_id", st.session_state.project_id))}</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.sidebar.markdown('<div class="workflow-id">No project selected yet</div>', unsafe_allow_html=True)
     st.sidebar.progress(workflow_progress(project))
-    for step in workflow_steps(project):
-        marker = "[x]" if step["complete"] else "[ ]"
-        st.sidebar.write(f"{marker} {step['label']}")
-    st.sidebar.info(next_action(project))
+    render_workflow_timeline(project)
+    st.sidebar.markdown(f'<div class="workflow-next">{escape(next_action(project))}</div>', unsafe_allow_html=True)
     render_latest_runs(project)
-    if st.sidebar.button("Refresh project"):
+    if st.sidebar.button("Refresh project", disabled=not bool(st.session_state.project_id)):
         refresh_project()
         st.rerun()
 
