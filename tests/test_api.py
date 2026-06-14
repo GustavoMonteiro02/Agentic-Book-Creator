@@ -131,6 +131,36 @@ def test_structure_revision_regenerates_outline_and_records_run():
     assert "structure_revision" in run_types
 
 
+def test_structure_revision_can_add_more_chapters():
+    client = TestClient(app)
+    create_response = client.post(
+        "/projects",
+        json={
+            "title": "Agentic AI for Automation",
+            "initial_idea": "Quero um livro prático sobre agentes de IA para RPA developers com código.",
+        },
+    )
+    project_id = create_response.json()["project_id"]
+    answers_response = client.post(
+        f"/projects/{project_id}/answers",
+        json={"answers": [{"field": "preferred_structure", "answer": "livro curto mas completo"}]},
+    )
+    original_chapter_count = _chapter_count(answers_response.json()["book_structure"])
+
+    revision_response = client.post(
+        f"/projects/{project_id}/approve-structure",
+        json={"approved": False, "revision_request": "adiciona mais capítulos sobre debug e RAG"},
+    )
+
+    assert revision_response.status_code == 200
+    revised_structure = revision_response.json()["book_structure"]
+    assert _chapter_count(revised_structure) > original_chapter_count
+    chapter_titles = _chapter_titles(revised_structure)
+    assert "Debugging and Observability for Agent Workflows" in chapter_titles
+    assert "Working with Source Documents and RAG" in chapter_titles
+    assert revised_structure["last_revision_applied"] == "adiciona mais capítulos sobre debug e RAG"
+
+
 def test_resubmitting_answers_preserves_previous_fields():
     client = TestClient(app)
     create_response = client.post(
@@ -157,3 +187,15 @@ def test_resubmitting_answers_preserves_previous_fields():
     saved_answers = {answer["field"]: answer["answer"] for answer in second_response.json()["user_answers"]}
     assert saved_answers["tone"] == "prático"
     assert saved_answers["reader_level"] == "intermédio"
+
+
+def _chapter_count(structure: dict) -> int:
+    return sum(len(part.get("chapters", [])) for part in structure.get("parts", []))
+
+
+def _chapter_titles(structure: dict) -> set[str]:
+    return {
+        chapter.get("title")
+        for part in structure.get("parts", [])
+        for chapter in part.get("chapters", [])
+    }

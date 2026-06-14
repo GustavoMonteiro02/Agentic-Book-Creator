@@ -348,6 +348,10 @@ def structure_metrics(structure: dict) -> dict[str, int]:
     }
 
 
+def chapter_title_set(structure: dict) -> set[str]:
+    return {chapter.get("title", "Untitled chapter") for chapter in flatten_structure_chapters(structure or {})}
+
+
 def latest_run(project: dict, run_type: str | None = None) -> dict | None:
     runs = project.get("execution_runs", [])
     if run_type:
@@ -383,6 +387,26 @@ def render_structure_delta(before: dict, after: dict):
         )
     st.subheader("What changed")
     st.table(rows)
+    before_titles = chapter_title_set(before)
+    after_titles = chapter_title_set(after)
+    added = sorted(after_titles - before_titles)
+    removed = sorted(before_titles - after_titles)
+    if added or removed:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Added chapters**")
+            if added:
+                for title in added:
+                    st.write(f"- {title}")
+            else:
+                st.caption("No added chapters.")
+        with col2:
+            st.markdown("**Removed chapters**")
+            if removed:
+                for title in removed:
+                    st.write(f"- {title}")
+            else:
+                st.caption("No removed chapters.")
 
 
 def render_structure_overview(structure: dict):
