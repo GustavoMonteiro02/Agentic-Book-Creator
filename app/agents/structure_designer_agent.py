@@ -70,6 +70,12 @@ def design_structure(state: BookState) -> BookState:
 
 
 def _apply_revision_fallback(structure: dict, revision_requests: list[str]) -> dict:
+    if revision_requests:
+        structure = {
+            **structure,
+            "revision_notes": revision_requests,
+            "last_revision_applied": revision_requests[-1],
+        }
     latest_revision = revision_requests[-1].lower() if revision_requests else ""
     if not any(word in latest_revision for word in ["small", "short", "smaller", "curto", "curta"]):
         return structure

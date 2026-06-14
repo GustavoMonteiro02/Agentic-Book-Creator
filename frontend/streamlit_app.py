@@ -279,6 +279,10 @@ def restore_project(project: dict):
     st.session_state.project = project
 
 
+def saved_answer_map(project: dict | None) -> dict[str, str]:
+    return {answer.get("field"): answer.get("answer", "") for answer in (project or {}).get("user_answers", [])}
+
+
 def render_project_picker():
     projects = api_get_optional("/projects") or []
     if not projects:
@@ -436,6 +440,16 @@ def render_operation_payload(title: str, endpoint: str, payload: dict):
         st.json(payload)
 
 
+def render_saved_answers(project: dict):
+    answers = project.get("user_answers", [])
+    if not answers:
+        return
+    with st.expander("Saved answers", expanded=True):
+        for answer in answers:
+            st.write(f"**{answer.get('field', 'field')}**")
+            st.caption(answer.get("answer", ""))
+
+
 def render_workflow_debug(project: dict, structure: dict | None = None):
     st.subheader("Workflow Debug")
     st.caption("Use this view to inspect what each agent produced and what state the next agent will receive.")
@@ -551,8 +565,9 @@ if page == "Input Questions":
     if not st.session_state.project_id:
         st.info("Create a project first.")
     else:
-        if not st.session_state.project:
-            refresh_project()
+        ensure_project_loaded()
+        if st.session_state.project:
+            render_saved_answers(st.session_state.project)
         if not st.session_state.project.get("input_questions"):
             if st.button("Generate adaptive questions", type="primary"):
                 with st.status("Generating adaptive questions with Gemini...", expanded=True) as status:
@@ -567,12 +582,19 @@ if page == "Input Questions":
 
     if st.session_state.project and st.session_state.project.get("input_questions"):
         st.info(next_action(st.session_state.project))
+        saved_answers = saved_answer_map(st.session_state.project)
         answers = []
         for question in st.session_state.project["input_questions"]:
-            answer = st.text_input(question["question"], key=question["field"])
+            answer_key = f"{st.session_state.project_id}_{question['field']}"
+            if answer_key not in st.session_state and question["field"] in saved_answers:
+                st.session_state[answer_key] = saved_answers[question["field"]]
+            answer = st.text_input(question["question"], key=answer_key)
             if answer:
                 answers.append({"field": question["field"], "answer": answer})
-        if answers and st.button("Submit answers"):
+        if st.session_state.project.get("book_requirements"):
+            st.success("These answers already generated a book plan. Edit any field and submit again to regenerate.")
+            render_book_plan_summary(st.session_state.project)
+        if answers and st.button("Submit answers / regenerate plan"):
             with st.status("Building book brief, strategy, and structure...", expanded=True) as status:
                 render_operation_payload(
                     "Request sent to the book-plan workflow",

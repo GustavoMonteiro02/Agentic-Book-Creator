@@ -17,7 +17,10 @@ class BookService:
 
     def submit_answers(self, project_id: str, answers: list[dict]):
         state = project_repository.get(project_id)
-        state["user_answers"] = answers
+        merged_answers = {answer.get("field"): answer for answer in state.get("user_answers", [])}
+        for answer in answers:
+            merged_answers[answer["field"]] = answer
+        state["user_answers"] = list(merged_answers.values())
         state["raw_user_inputs"] = [*state.get("raw_user_inputs", []), *[answer["answer"] for answer in answers]]
         state = self.workflow.create_book_plan(state)
         state = record_run(state, "book_plan")

@@ -122,9 +122,38 @@ def test_structure_revision_regenerates_outline_and_records_run():
     revised_project = revision_response.json()
     assert revised_project["structure_revision_requests"] == ["make it small"]
     assert revised_project["structure_approved"] is False
+    assert revised_project["book_structure"]["last_revision_applied"] == "make it small"
     assert len(revised_project["book_structure"]["parts"]) == 1
     assert "compact" in revised_project["book_structure"]["parts"][0]["chapters"][0]["goal"]
 
     run_types = [run["run_type"] for run in revised_project["execution_runs"]]
     assert "book_plan" in run_types
     assert "structure_revision" in run_types
+
+
+def test_resubmitting_answers_preserves_previous_fields():
+    client = TestClient(app)
+    create_response = client.post(
+        "/projects",
+        json={
+            "title": "Agentic AI for Automation",
+            "initial_idea": "Quero um livro prático sobre agentes de IA para RPA developers com código.",
+        },
+    )
+    project_id = create_response.json()["project_id"]
+
+    first_response = client.post(
+        f"/projects/{project_id}/answers",
+        json={"answers": [{"field": "tone", "answer": "prático"}]},
+    )
+    assert first_response.status_code == 200
+
+    second_response = client.post(
+        f"/projects/{project_id}/answers",
+        json={"answers": [{"field": "reader_level", "answer": "intermédio"}]},
+    )
+
+    assert second_response.status_code == 200
+    saved_answers = {answer["field"]: answer["answer"] for answer in second_response.json()["user_answers"]}
+    assert saved_answers["tone"] == "prático"
+    assert saved_answers["reader_level"] == "intermédio"
