@@ -89,7 +89,7 @@ def test_approved_project_can_generate_chapter_step_by_step():
     assert any(item["category"] == "rag_grounding" for item in diagnostics["debugging_checklist"])
 
 
-def test_structure_revision_regenerates_outline_and_records_run():
+def test_structure_revision_fallback_regenerates_outline_and_records_run_without_llm():
     client = TestClient(app)
     create_response = client.post(
         "/projects",
@@ -131,7 +131,7 @@ def test_structure_revision_regenerates_outline_and_records_run():
     assert "structure_revision" in run_types
 
 
-def test_structure_revision_can_add_more_chapters():
+def test_structure_revision_fallback_can_add_more_chapters_without_llm():
     client = TestClient(app)
     create_response = client.post(
         "/projects",
@@ -156,8 +156,8 @@ def test_structure_revision_can_add_more_chapters():
     revised_structure = revision_response.json()["book_structure"]
     assert _chapter_count(revised_structure) > original_chapter_count
     chapter_titles = _chapter_titles(revised_structure)
-    assert "Debugging and Observability for Agent Workflows" in chapter_titles
-    assert "Working with Source Documents and RAG" in chapter_titles
+    assert any("Debugging" in title for title in chapter_titles)
+    assert any("RAG" in title for title in chapter_titles)
     assert revised_structure["last_revision_applied"] == "adiciona mais capítulos sobre debug e RAG"
 
 

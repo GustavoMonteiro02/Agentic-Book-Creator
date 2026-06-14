@@ -54,19 +54,27 @@ def design_structure(state: BookState) -> BookState:
         ],
     }
     original_structure = state.get("book_structure") or default_structure
-    structure = _apply_revision_fallback(original_structure, revision_requests)
+    fallback_structure = _apply_revision_fallback(original_structure, revision_requests)
 
     structure = llm_client.generate_json(
         system_prompt=STRUCTURE_DESIGNER_PROMPT,
         user_payload={
             "book_requirements": state.get("book_requirements", {}),
             "book_strategy": strategy,
-            "existing_structure": state.get("book_structure", {}),
+            "existing_structure": original_structure,
             "revision_requests": revision_requests,
+            "agent_contract": {
+                "llm_is_revision_authority": True,
+                "expected_output": "Complete revised book structure JSON.",
+                "debugging_fields": [
+                    "revision_notes",
+                    "last_revision_applied",
+                    "change_summary",
+                ],
+            },
         },
-        fallback=structure,
+        fallback=fallback_structure,
     )
-    structure = _ensure_revision_applied(original_structure, structure, revision_requests)
 
     return {**state, "book_structure": structure, "status": "structure_ready"}
 
@@ -84,23 +92,6 @@ def _apply_revision_fallback(structure: dict, revision_requests: list[str]) -> d
     if _wants_smaller_structure(latest_revision):
         structure = _compact_structure(structure)
     return structure
-
-
-def _ensure_revision_applied(original_structure: dict, revised_structure: dict, revision_requests: list[str]) -> dict:
-    if not revision_requests:
-        return revised_structure
-
-    latest_revision = revision_requests[-1].lower()
-    revised_structure = {
-        **revised_structure,
-        "revision_notes": revision_requests,
-        "last_revision_applied": revision_requests[-1],
-    }
-    if _wants_more_chapters(latest_revision) and _chapter_count(revised_structure) <= _chapter_count(original_structure):
-        revised_structure = _add_revision_chapters(revised_structure, latest_revision)
-    if _wants_smaller_structure(latest_revision) and _chapter_count(revised_structure) >= _chapter_count(original_structure):
-        revised_structure = _compact_structure(revised_structure)
-    return revised_structure
 
 
 def _wants_more_chapters(revision: str) -> bool:

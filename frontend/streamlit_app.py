@@ -391,6 +391,15 @@ def render_structure_delta(before: dict, after: dict):
     after_titles = chapter_title_set(after)
     added = sorted(after_titles - before_titles)
     removed = sorted(before_titles - after_titles)
+    change_summary = after.get("change_summary")
+    last_revision = after.get("last_revision_applied")
+    has_metric_delta = any(row["delta"] for row in rows)
+
+    if change_summary:
+        st.info(change_summary)
+    if last_revision:
+        st.caption(f"Latest revision request: {last_revision}")
+
     if added or removed:
         col1, col2 = st.columns(2)
         with col1:
@@ -407,6 +416,11 @@ def render_structure_delta(before: dict, after: dict):
                     st.write(f"- {title}")
             else:
                 st.caption("No removed chapters.")
+    elif not has_metric_delta:
+        st.warning(
+            "No visible structure delta was detected. The LLM returned a valid structure, "
+            "but it did not change the chapter, section, or exercise counts or chapter titles."
+        )
 
 
 def render_structure_overview(structure: dict):

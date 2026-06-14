@@ -57,6 +57,8 @@ The agent layer is intentionally modular:
 
 Each agent first prepares a deterministic fallback artifact, then delegates to the shared LLM client. If `GEMINI_API_KEY` or `GOOGLE_API_KEY` is present, the client calls the configured Gemini model. If not, it returns the fallback. The service layer executes the creation flow through compiled LangGraph graphs, keeping production behavior LLM-backed while preserving stable offline tests.
 
+Structure revisions are LLM-led when Gemini is configured. The fallback can keep local/offline development moving, but the revision agent does not post-process Gemini output with hidden deterministic rules. If the model returns a valid structure without a visible change, the UI surfaces that as a debuggable workflow result.
+
 ## RAG Strategy
 
 RAG enters in v0.3, after the core workflow is stable. Source upload and indexing should produce project-scoped document chunks in Pinecone. Chapter planning and writing can then retrieve relevant context and include source-grounded examples.
