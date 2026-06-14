@@ -334,6 +334,53 @@ def flatten_structure_chapters(structure: dict) -> list[dict]:
     return chapters
 
 
+def structure_metrics(structure: dict) -> dict[str, int]:
+    chapters = flatten_structure_chapters(structure or {})
+    return {
+        "parts": len((structure or {}).get("parts", [])),
+        "chapters": len(chapters),
+        "sections": sum(len(chapter.get("sections", [])) for chapter in chapters),
+        "exercises": sum(len(chapter.get("exercises", [])) for chapter in chapters),
+    }
+
+
+def latest_run(project: dict, run_type: str | None = None) -> dict | None:
+    runs = project.get("execution_runs", [])
+    if run_type:
+        runs = [run for run in runs if run.get("run_type") == run_type]
+    return runs[-1] if runs else None
+
+
+def render_run_summary(run: dict | None):
+    if not run:
+        st.info("No run metadata was returned for this operation.")
+        return
+
+    metadata = run.get("llm_metadata", {})
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Run", run.get("run_type", "workflow"))
+    col2.metric("Status", run.get("status", "unknown"))
+    col3.metric("Route", metadata.get("model_route", "unknown"))
+    st.caption(f"Provider/model: {metadata.get('llm_provider', 'unknown')} / {metadata.get('llm_model_version', 'unknown')}")
+
+
+def render_structure_delta(before: dict, after: dict):
+    before_metrics = structure_metrics(before)
+    after_metrics = structure_metrics(after)
+    rows = []
+    for key in ["parts", "chapters", "sections", "exercises"]:
+        rows.append(
+            {
+                "metric": key,
+                "before": before_metrics[key],
+                "after": after_metrics[key],
+                "delta": after_metrics[key] - before_metrics[key],
+            }
+        )
+    st.subheader("What changed")
+    st.table(rows)
+
+
 def render_structure_overview(structure: dict):
     if not structure:
         st.info("No book structure has been generated yet. Submit the input answers first.")
@@ -381,6 +428,12 @@ def render_book_plan_summary(project: dict):
     with structure:
         render_structure_overview(project.get("book_structure", {}))
     render_workflow_debug(project, project.get("book_structure", {}))
+
+
+def render_operation_payload(title: str, endpoint: str, payload: dict):
+    with st.expander(title, expanded=True):
+        st.code(endpoint, language="text")
+        st.json(payload)
 
 
 def render_workflow_debug(project: dict, structure: dict | None = None):
@@ -521,12 +574,19 @@ if page == "Input Questions":
                 answers.append({"field": question["field"], "answer": answer})
         if answers and st.button("Submit answers"):
             with st.status("Building book brief, strategy, and structure...", expanded=True) as status:
+                render_operation_payload(
+                    "Request sent to the book-plan workflow",
+                    f"POST /projects/{st.session_state.project_id}/answers",
+                    {"answers": answers},
+                )
                 render_agent_activity(BOOK_PLAN_AGENT_STEPS)
                 project = api_post(
                     f"/projects/{st.session_state.project_id}/answers",
                     {"answers": answers},
                     timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
                 )
+                st.markdown("**Completed run**")
+                render_run_summary(latest_run(project, "book_plan"))
                 status.update(label="Book plan generated", state="complete")
             st.session_state.project = project
             st.success("Brief, strategy, and structure generated.")
@@ -607,16 +667,32 @@ if page == "Book Structure":
             st.caption("Requesting revision records feedback and keeps the chapter agents locked.")
             revision = st.text_area("Revision request", height=120, placeholder="Example: Make chapters shorter and add more PDF/RAG examples.")
             if st.button("Request revision", disabled=not bool(revision.strip())):
+                previous_structure = dict(structure or {})
+                revision_payload = {"approved": False, "revision_request": revision.strip()}
                 with st.status("Revising structure with agent feedback...", expanded=True) as status:
+                    render_operation_payload(
+                        "Request sent to the revision workflow",
+                        f"POST /projects/{st.session_state.project_id}/approve-structure",
+                        revision_payload,
+                    )
+                    st.markdown("**Structure before revision**")
+                    st.table([structure_metrics(previous_structure)])
                     render_agent_activity(STRUCTURE_REVISION_AGENT_STEPS)
                     st.session_state.project = api_post(
                         f"/projects/{st.session_state.project_id}/approve-structure",
-                        {"approved": False, "revision_request": revision.strip()},
+                        revision_payload,
                         timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
                     )
+                    revised_structure = st.session_state.project.get("book_structure", {})
+                    st.markdown("**Structure after revision**")
+                    st.table([structure_metrics(revised_structure)])
+                    st.markdown("**Completed run**")
+                    render_run_summary(latest_run(st.session_state.project, "structure_revision"))
                     status.update(label="Structure revision complete", state="complete")
                 st.warning("Revision applied. Review the updated structure before approving.")
-                st.rerun()
+                render_structure_delta(previous_structure, st.session_state.project.get("book_structure", {}))
+                render_structure_overview(st.session_state.project.get("book_structure", {}))
+                render_workflow_debug(st.session_state.project, st.session_state.project.get("book_structure", {}))
 
 if page == "Chapter Workspace":
     if not st.session_state.project_id:
