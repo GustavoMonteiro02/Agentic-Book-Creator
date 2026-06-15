@@ -77,6 +77,9 @@ def test_approved_project_can_generate_chapter_step_by_step():
     assert "structure_approval" in run_types
     assert "chapter_edit" in run_types
     assert runs_response.json()[0]["llm_metadata"]["model_route"]
+    chapter_edit_run = next(run for run in runs_response.json() if run["run_type"] == "chapter_edit")
+    assert chapter_edit_run["llm_metadata"]["workflow_nodes"][0]["name"] == "Editor Agent"
+    assert chapter_edit_run["llm_metadata"]["artifact_summary"]["final_chapters"] == 1
 
     diagnostics_response = client.get(f"/projects/{project_id}/diagnostics")
     assert diagnostics_response.status_code == 200
@@ -129,6 +132,13 @@ def test_structure_revision_fallback_regenerates_outline_and_records_run_without
     run_types = [run["run_type"] for run in revised_project["execution_runs"]]
     assert "book_plan" in run_types
     assert "structure_revision" in run_types
+    revision_run = next(run for run in revised_project["execution_runs"] if run["run_type"] == "structure_revision")
+    assert [node["name"] for node in revision_run["llm_metadata"]["workflow_nodes"]] == [
+        "Human Feedback Gate",
+        "Structure Designer Agent",
+        "Gemini",
+        "Checkpoint Service",
+    ]
 
 
 def test_structure_revision_fallback_can_add_more_chapters_without_llm():

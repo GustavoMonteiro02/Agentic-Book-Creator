@@ -13,7 +13,7 @@ The goal is not to auto-generate a book in one opaque prompt. The system behaves
 - PostgreSQL persistence model
 - LangSmith observability hooks
 - RAG-ready architecture with Pinecone
-- Streamlit MVP interface
+- Streamlit workspace with agent execution trace, artifact counters, fallback warnings, and project resume
 - pytest coverage for deterministic workflow behavior
 
 ## MVP Flow
@@ -110,6 +110,8 @@ Then open:
 - UI: `http://localhost:8501`
 
 The API container runs Alembic migrations before starting FastAPI.
+
+In the UI, use the sidebar progress tracker and the "Agent trace" / "Trace" tabs to inspect each LangGraph run. Runs show the node name, model route, produced artifacts, fallback/quota warnings, and checkpoint counts so you can debug what happened after every action.
 
 If you run Streamlit outside Docker, point it to the API explicitly:
 

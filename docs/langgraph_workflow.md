@@ -73,3 +73,11 @@ The workflow must not generate chapters until the structure is approved. Human r
 ## Implementation Notes
 
 The service layer now runs the core creation phases through compiled LangGraph graphs. The node functions call Gemini through the shared LLM client when credentials are configured, while deterministic fallbacks keep tests and offline demos stable.
+
+Every recorded run includes node-level observability metadata:
+
+- `workflow_nodes`: the agents/services involved in that operation;
+- `artifact_summary`: counts and readiness flags for generated outputs;
+- `runtime_warnings`: provider fallback details, including quota or API failures.
+
+The Streamlit UI renders this metadata in the sidebar, the structure "Agent trace" tab, and the chapter workspace "Trace" tab.

@@ -315,6 +315,49 @@ def render_agent_activity(steps: list[tuple[str, str]]):
         st.caption(work)
 
 
+def render_artifact_summary(summary: dict):
+    if not summary:
+        return
+    labels = [
+        ("Questions", summary.get("questions", 0)),
+        ("Answers", summary.get("answers", 0)),
+        ("Revisions", summary.get("revision_requests", 0)),
+        ("Plans", summary.get("chapter_plans", 0)),
+        ("Drafts", summary.get("chapter_drafts", 0)),
+        ("Reviews", summary.get("chapter_reviews", 0)),
+        ("Final chapters", summary.get("final_chapters", 0)),
+        ("Checkpoints", summary.get("checkpoints", 0)),
+    ]
+    cols = st.columns(4)
+    for index, (label, value) in enumerate(labels):
+        cols[index % 4].metric(label, value)
+
+
+def render_workflow_nodes(nodes: list[dict]):
+    if not nodes:
+        st.info("This run does not include node-level metadata yet.")
+        return
+    for index, node in enumerate(nodes, start=1):
+        status = node.get("status", "unknown")
+        with st.container(border=True):
+            st.markdown(f"**{index}. {node.get('name', 'Workflow node')}**")
+            st.caption(f"Status: {status}")
+            st.write(node.get("role", "No role description recorded."))
+            artifacts = node.get("artifacts", [])
+            if artifacts:
+                st.markdown("**Artifacts touched**")
+                st.table(artifacts)
+
+
+def render_runtime_warnings(warnings: list[dict]):
+    for warning in warnings or []:
+        st.error(
+            "LLM provider fallback was used for "
+            f"`{warning.get('field', 'artifact')}`. "
+            f"{warning.get('error_type', 'LLM error')}: {warning.get('message', 'No details returned.')}"
+        )
+
+
 def render_latest_runs(project: dict):
     runs = project.get("execution_runs", [])[-5:]
     if not runs:
@@ -370,6 +413,11 @@ def render_run_summary(run: dict | None):
     col2.metric("Status", run.get("status", "unknown"))
     col3.metric("Route", metadata.get("model_route", "unknown"))
     st.caption(f"Provider/model: {metadata.get('llm_provider', 'unknown')} / {metadata.get('llm_model_version', 'unknown')}")
+    render_runtime_warnings(metadata.get("runtime_warnings", []))
+    st.markdown("**Agent nodes and artifacts**")
+    render_workflow_nodes(metadata.get("workflow_nodes", []))
+    st.markdown("**Artifact counters**")
+    render_artifact_summary(metadata.get("artifact_summary", {}))
 
 
 def render_structure_delta(before: dict, after: dict):
@@ -495,8 +543,8 @@ def render_saved_answers(project: dict):
 
 
 def render_workflow_debug(project: dict, structure: dict | None = None):
-    st.subheader("Workflow Debug")
-    st.caption("Use this view to inspect what each agent produced and what state the next agent will receive.")
+    st.subheader("Agent Execution Trace")
+    st.caption("Inspect the LangGraph nodes, provider route, produced artifacts, and the state the next agent will receive.")
 
     latest_runs = project.get("execution_runs", [])[-8:]
     if latest_runs:
@@ -504,9 +552,13 @@ def render_workflow_debug(project: dict, structure: dict | None = None):
         for run in reversed(latest_runs):
             metadata = run.get("llm_metadata", {})
             with st.expander(f"{run.get('run_type', 'workflow')} - {run.get('status', 'unknown')}", expanded=False):
-                st.write(f"Provider: {metadata.get('llm_provider', 'unknown')}")
-                st.write(f"Model: {metadata.get('llm_model_version', 'unknown')}")
-                st.write(f"Route: {metadata.get('model_route', 'unknown')}")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Provider", metadata.get("llm_provider", "unknown"))
+                col2.metric("Model", metadata.get("llm_model_version", "unknown"))
+                col3.metric("Route", metadata.get("model_route", "unknown"))
+                render_runtime_warnings(metadata.get("runtime_warnings", []))
+                render_workflow_nodes(metadata.get("workflow_nodes", []))
+                st.markdown("**Run metadata JSON**")
                 st.json(metadata)
     else:
         st.info("No workflow runs have been recorded for this project yet.")
@@ -517,10 +569,10 @@ def render_workflow_debug(project: dict, structure: dict | None = None):
         for index, request in enumerate(revision_requests, start=1):
             st.write(f"{index}. {request}")
 
-    with st.expander("Current project state"):
+    with st.expander("Current project state", expanded=False):
         st.json(project)
     if structure is not None:
-        with st.expander("Raw structure object"):
+        with st.expander("Raw structure object", expanded=False):
             st.json(structure)
 
 
@@ -596,6 +648,8 @@ if page == "Create Book":
             render_agent_activity(QUESTION_AGENT_STEPS)
             project = api_post(f"/projects/{project['project_id']}/questions", timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS)
             st.session_state.project = project
+            st.markdown("**Completed run**")
+            render_run_summary(latest_run(project, "input_gathering"))
             status.update(label="Project ready for input", state="complete")
 
         st.session_state.project_id = project["project_id"]
@@ -620,6 +674,8 @@ if page == "Input Questions":
                         f"/projects/{st.session_state.project_id}/questions",
                         timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
                     )
+                    st.markdown("**Completed run**")
+                    render_run_summary(latest_run(project, "input_gathering"))
                     status.update(label="Questions generated", state="complete")
                 st.session_state.project = project
                 st.rerun()
@@ -723,10 +779,14 @@ if page == "Book Structure":
         with col1:
             st.caption("Approve when the outline is good enough for chapter generation.")
             if st.button("Approve structure", type="primary"):
-                st.session_state.project = api_post(
-                    f"/projects/{st.session_state.project_id}/approve-structure",
-                    {"approved": True},
-                )
+                with st.status("Recording human approval gate...", expanded=True) as status:
+                    st.session_state.project = api_post(
+                        f"/projects/{st.session_state.project_id}/approve-structure",
+                        {"approved": True},
+                    )
+                    st.markdown("**Completed run**")
+                    render_run_summary(latest_run(st.session_state.project, "structure_approval"))
+                    status.update(label="Structure approved", state="complete")
                 st.success("Structure approved. Chapter agents are now unlocked.")
                 st.rerun()
         with col2:
@@ -786,17 +846,35 @@ if page == "Chapter Workspace":
                     f"/projects/{st.session_state.project_id}/chapters/{chapter_number}/generate",
                     timeout_seconds=LLM_REQUEST_TIMEOUT_SECONDS,
                 )
+                st.markdown("**Completed run**")
+                render_run_summary(latest_run(project, "chapter_generation"))
                 status.update(label="Chapter generated", state="complete")
             st.session_state.project = project
         if st.session_state.project:
-            st.subheader("Plan")
-            st.json(st.session_state.project.get("chapter_plans", [])[-1:] or {})
-            st.subheader("Technical Review")
-            st.json(st.session_state.project.get("chapter_reviews", [])[-1:] or {})
-            st.subheader("Final Chapter")
-            chapters = st.session_state.project.get("final_chapters", [])
-            if chapters:
-                st.markdown(chapters[-1]["markdown"])
+            latest_chapter_run = latest_run(st.session_state.project, "chapter_generation")
+            if latest_chapter_run:
+                st.subheader("Latest Agent Run")
+                render_run_summary(latest_chapter_run)
+
+            plan_tab, draft_tab, review_tab, final_tab, trace_tab = st.tabs(["Plan", "Draft", "Review", "Final", "Trace"])
+            with plan_tab:
+                st.json(st.session_state.project.get("chapter_plans", [])[-1:] or {})
+            with draft_tab:
+                drafts = st.session_state.project.get("chapter_drafts", [])
+                if drafts:
+                    st.markdown(drafts[-1].get("markdown", ""))
+                else:
+                    st.info("No draft has been generated yet.")
+            with review_tab:
+                st.json(st.session_state.project.get("chapter_reviews", [])[-1:] or {})
+            with final_tab:
+                chapters = st.session_state.project.get("final_chapters", [])
+                if chapters:
+                    st.markdown(chapters[-1]["markdown"])
+                else:
+                    st.info("No final chapter has been generated yet.")
+            with trace_tab:
+                render_workflow_debug(st.session_state.project, st.session_state.project.get("book_structure", {}))
 
 if page == "Export":
     if not st.session_state.project_id:
