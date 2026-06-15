@@ -393,8 +393,14 @@ def render_structure_delta(before: dict, after: dict):
     removed = sorted(before_titles - after_titles)
     change_summary = after.get("change_summary")
     last_revision = after.get("last_revision_applied")
+    llm_runtime = after.get("llm_runtime", {})
     has_metric_delta = any(row["delta"] for row in rows)
 
+    if llm_runtime.get("status") == "fallback_used":
+        st.error(
+            "The LLM call failed, so the workflow used the local fallback. "
+            f"{llm_runtime.get('error_type', 'LLM error')}: {llm_runtime.get('message', 'No details returned.')}"
+        )
     if change_summary:
         st.info(change_summary)
     if last_revision:

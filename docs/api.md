@@ -163,6 +163,8 @@ The response includes Precision@K, Recall@K, Hit Rate@K, and MRR.
 
 The agents call Gemini when `GEMINI_API_KEY` or `GOOGLE_API_KEY` is configured. Without credentials, deterministic fallbacks keep tests, CI, and local demos stable. Pinecone retrieval and LangSmith trace submission are still planned integration layers.
 
+If Gemini returns a provider error such as quota exhaustion, JSON-producing agents return the local fallback with an `llm_runtime` diagnostic block instead of crashing the API request.
+
 Minimum real-LLM configuration:
 
 ```bash

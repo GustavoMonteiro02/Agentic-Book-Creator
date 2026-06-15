@@ -27,19 +27,25 @@ class LLMClient:
         if not self.is_configured():
             return fallback
 
-        content = self._complete(
-            system_prompt=(
-                f"{system_prompt}\n\n"
-                "Return only valid JSON. Do not include markdown fences, commentary, or extra text."
-            ),
-            user_content=json.dumps(user_payload, ensure_ascii=False),
-        )
+        try:
+            content = self._complete(
+                system_prompt=(
+                    f"{system_prompt}\n\n"
+                    "Return only valid JSON. Do not include markdown fences, commentary, or extra text."
+                ),
+                user_content=json.dumps(user_payload, ensure_ascii=False),
+            )
+        except Exception as exc:
+            return _fallback_with_llm_error(fallback, exc)
         return _parse_json_or_fallback(content, fallback)
 
     def generate_text(self, system_prompt: str, user_payload: dict, fallback: str) -> str:
         if not self.is_configured():
             return fallback
-        return self._complete(system_prompt=system_prompt, user_content=json.dumps(user_payload, ensure_ascii=False))
+        try:
+            return self._complete(system_prompt=system_prompt, user_content=json.dumps(user_payload, ensure_ascii=False))
+        except Exception:
+            return fallback
 
     def _complete(self, system_prompt: str, user_content: str) -> str:
         if self.settings.llm_provider == "gemini":
@@ -92,6 +98,24 @@ def _parse_json_or_fallback(content: str, fallback: dict) -> dict:
     except json.JSONDecodeError:
         return fallback
     return parsed if isinstance(parsed, dict) else fallback
+
+
+def _fallback_with_llm_error(fallback: dict, exc: Exception) -> dict:
+    return {
+        **fallback,
+        "llm_runtime": {
+            "status": "fallback_used",
+            "error_type": exc.__class__.__name__,
+            "message": _safe_error_message(exc),
+        },
+    }
+
+
+def _safe_error_message(exc: Exception) -> str:
+    message = str(exc).replace("\n", " ").strip()
+    if len(message) > 500:
+        return f"{message[:497]}..."
+    return message or exc.__class__.__name__
 
 
 llm_client = LLMClient()
